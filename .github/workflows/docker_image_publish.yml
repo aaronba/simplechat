@@ -1,10 +1,10 @@
 
-name: SimpleChat Docker Image Publish
+name: SimpleChat Docker Image Publish (Alex-UI)
 
 on:
   push:
     branches:
-    - main
+    - alex-ui
   workflow_dispatch:
 
 jobs:
