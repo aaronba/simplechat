@@ -105,7 +105,16 @@ CLIENT_ID = os.getenv("CLIENT_ID")
 APP_URI = f"api://{CLIENT_ID}"
 CLIENT_SECRET = os.getenv("MICROSOFT_PROVIDER_AUTHENTICATION_SECRET")
 TENANT_ID = os.getenv("TENANT_ID")
-AUTHORITY = f"https://login.microsoftonline.us/{TENANT_ID}"
+
+# Add support for OTHER_CLOUDS environment variable
+AZURE_ENVIRONMENT_CUSTOM_SUFFIX = os.getenv("AZURE_ENVIRONMENT_CUSTOM_SUFFIX", "false").lower() == "true"
+AZURE_ENVIRONMENT_CUSTOM_SUFFIX_VALUE = os.getenv("AZURE_ENVIRONMENT_CUSTOM_SUFFIX_VALUE", "")
+AZURE_ENVIRONMENT_CUSTOM_RESOURCE_MANAGER_VALUE = os.getenv("AZURE_ENVIRONMENT_CUSTOM_RESOURCE_MANAGER_VALUE", "")
+if AZURE_ENVIRONMENT_CUSTOM_SUFFIX and AZURE_ENVIRONMENT_CUSTOM_SUFFIX_VALUE:
+    AUTHORITY = f"https://login.microsoftonline.{AZURE_ENVIRONMENT_CUSTOM_SUFFIX_VALUE}"
+else:
+    AUTHORITY = f"https://login.microsoftonline.us/{TENANT_ID}"
+
 SCOPE = ["User.Read", "User.ReadBasic.All", "People.Read.All", "Group.Read.All"] # Adjust scope according to your needs
 MICROSOFT_PROVIDER_AUTHENTICATION_SECRET = os.getenv("MICROSOFT_PROVIDER_AUTHENTICATION_SECRET")    
 AZURE_ENVIRONMENT = os.getenv("AZURE_ENVIRONMENT", "public") # public, usgovernment
@@ -115,6 +124,10 @@ WORD_CHUNK_SIZE = 400
 if AZURE_ENVIRONMENT == "usgovernment":
     resource_manager = "https://management.usgovcloudapi.net"
     authority = AzureAuthorityHosts.AZURE_GOVERNMENT
+    credential_scopes=[resource_manager + "/.default"]
+elif AZURE_ENVIRONMENT == "custom" and AZURE_ENVIRONMENT_CUSTOM_RESOURCE_MANAGER_VALUE:
+    resource_manager = AZURE_ENVIRONMENT_CUSTOM_RESOURCE_MANAGER_VALUE
+    authority = AUTHORITY
     credential_scopes=[resource_manager + "/.default"]
 else:
     resource_manager = "https://management.azure.com"
