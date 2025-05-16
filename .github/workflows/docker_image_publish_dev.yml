@@ -1,10 +1,10 @@
 
-name: SimpleChat Docker Image Publish (Other Clouds)
+name: SimpleChat Docker Image Publish (Other Clouds 2)
 
 on:
   push:
     branches:
-    - other-clouds
+    - other-clouds-2
   workflow_dispatch:
 
 jobs:
