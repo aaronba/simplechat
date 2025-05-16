@@ -5,11 +5,19 @@
 
 {% block head %}
     <link rel="stylesheet" href="/static/css/chats.css">
-    
+    <style>
+        /* Adjust chat container height if classification banner is present */
+        body.has-classification-banner #split-container {
+            height: calc(100vh - 106px); /* 56px navbar + 40px banner + 10px margin */
+        }
+        body:not(.has-classification-banner) #split-container {
+            height: calc(100vh - 66px); /* 56px navbar + 10px margin */
+        }
+    </style>
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid p-0" style="height: calc(100vh - 66px);">
+<div class="container-fluid p-0" id="main-chat-container">
     <div id="split-container" class="h-100 w-100">
 
         <div id="left-pane" class="d-flex flex-column h-100">
