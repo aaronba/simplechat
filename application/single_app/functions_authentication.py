@@ -27,6 +27,9 @@ def _save_cache(cache):
 
 def _build_msal_app(cache=None):
     """Builds the MSAL ConfidentialClientApplication, optionally initializing with a cache."""
+    print("Building MSAL app with cache.")
+    print(f"AUTHORITY: {AUTHORITY}")
+    print(f"TENANT_ID: {TENANT_ID}")
     return ConfidentialClientApplication(
         CLIENT_ID,
         authority=AUTHORITY,
