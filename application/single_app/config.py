@@ -111,7 +111,8 @@ AZURE_ENVIRONMENT_CUSTOM_SUFFIX = os.getenv("AZURE_ENVIRONMENT_CUSTOM_SUFFIX", "
 AZURE_ENVIRONMENT_CUSTOM_SUFFIX_VALUE = os.getenv("AZURE_ENVIRONMENT_CUSTOM_SUFFIX_VALUE", "")
 AZURE_ENVIRONMENT_CUSTOM_RESOURCE_MANAGER_VALUE = os.getenv("AZURE_ENVIRONMENT_CUSTOM_RESOURCE_MANAGER_VALUE", "")
 if AZURE_ENVIRONMENT_CUSTOM_SUFFIX and AZURE_ENVIRONMENT_CUSTOM_SUFFIX_VALUE:
-    AUTHORITY = f"https://login.microsoftonline.{AZURE_ENVIRONMENT_CUSTOM_SUFFIX_VALUE}"
+    AUTHORITY_HOST = f"https://login.microsoftonline.{AZURE_ENVIRONMENT_CUSTOM_SUFFIX_VALUE}"
+    AUTHORITY = f"https://login.microsoftonline.{AZURE_ENVIRONMENT_CUSTOM_SUFFIX_VALUE}/{TENANT_ID}"
 else:
     AUTHORITY = f"https://login.microsoftonline.us/{TENANT_ID}"
 
@@ -128,7 +129,7 @@ if AZURE_ENVIRONMENT == "usgovernment":
     cognitive_services_scope="https://cognitiveservices.azure.us/.default"
 elif AZURE_ENVIRONMENT == "custom" and AZURE_ENVIRONMENT_CUSTOM_RESOURCE_MANAGER_VALUE and AZURE_ENVIRONMENT_CUSTOM_SUFFIX_VALUE:
     resource_manager = AZURE_ENVIRONMENT_CUSTOM_RESOURCE_MANAGER_VALUE
-    authority = AUTHORITY
+    authority = AUTHORITY_HOST
     credential_scopes=[resource_manager + "/.default"]
     cognitive_services_scope="https://cognitiveservices.azure." + AZURE_ENVIRONMENT_CUSTOM_SUFFIX_VALUE + "/.default"
 else:
