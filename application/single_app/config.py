@@ -125,15 +125,18 @@ if AZURE_ENVIRONMENT == "usgovernment":
     resource_manager = "https://management.usgovcloudapi.net"
     authority = AzureAuthorityHosts.AZURE_GOVERNMENT
     credential_scopes=[resource_manager + "/.default"]
-elif AZURE_ENVIRONMENT == "custom" and AZURE_ENVIRONMENT_CUSTOM_RESOURCE_MANAGER_VALUE:
+    cognitive_services_scope="https://cognitiveservices.azure.us/.default"
+elif AZURE_ENVIRONMENT == "custom" and AZURE_ENVIRONMENT_CUSTOM_RESOURCE_MANAGER_VALUE and AZURE_ENVIRONMENT_CUSTOM_SUFFIX_VALUE:
     resource_manager = AZURE_ENVIRONMENT_CUSTOM_RESOURCE_MANAGER_VALUE
     authority = AUTHORITY
     credential_scopes=[resource_manager + "/.default"]
+    cognitive_services_scope="https://cognitiveservices.azure." + AZURE_ENVIRONMENT_CUSTOM_SUFFIX_VALUE + "/.default"
 else:
     resource_manager = "https://management.azure.com"
     authority = AzureAuthorityHosts.AZURE_PUBLIC_CLOUD
     credential_scopes=[resource_manager + "/.default"]
-
+    cognitive_services_scope="https://cognitiveservices.azure.com/.default"
+    
 bing_search_endpoint = "https://api.bing.microsoft.com/"
 
 storage_account_user_documents_container_name = "user-documents"

@@ -199,7 +199,7 @@ def _test_gpt_connection(payload):
         gpt_model = selected_model.get('deploymentName')
 
         if direct_data.get('auth_type') == 'managed_identity':
-            token_provider = get_bearer_token_provider(DefaultAzureCredential(), "https://cognitiveservices.azure.com/.default")
+            token_provider = get_bearer_token_provider(DefaultAzureCredential(), cognitive_services_scope)
             
             gpt_client = AzureOpenAI(
                 api_version=api_version,
@@ -252,7 +252,7 @@ def _test_embedding_connection(payload):
         embedding_model = selected_model.get('deploymentName')
 
         if direct_data.get('auth_type') == 'managed_identity':
-            token_provider = get_bearer_token_provider(DefaultAzureCredential(), "https://cognitiveservices.azure.com/.default")
+            token_provider = get_bearer_token_provider(DefaultAzureCredential(), cognitive_services_scope)
             
             embedding_client = AzureOpenAI(
                 api_version=api_version,
@@ -305,7 +305,7 @@ def _test_image_gen_connection(payload):
         image_gen_model = selected_model.get('deploymentName')
 
         if direct_data.get('auth_type') == 'managed_identity':
-            token_provider = get_bearer_token_provider(DefaultAzureCredential(), "https://cognitiveservices.azure.com/.default")
+            token_provider = get_bearer_token_provider(DefaultAzureCredential(), cognitive_services_scope)
             
             image_gen_client = AzureOpenAI(
                 api_version=api_version,
