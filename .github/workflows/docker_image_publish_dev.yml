@@ -1,10 +1,10 @@
 
-name: SimpleChat Docker Image Publish (Development)
+name: SimpleChat Docker Image Publish (multi-file-upload)
 
 on:
   push:
     branches:
-    - Development
+    - multi-file-upload
   workflow_dispatch:
 
 jobs:
