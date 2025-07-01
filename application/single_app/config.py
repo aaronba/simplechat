@@ -152,7 +152,13 @@ storage_account_group_documents_container_name = "group-documents"
 # Initialize Azure Cosmos DB client
 cosmos_endpoint = os.getenv("AZURE_COSMOS_ENDPOINT")
 cosmos_key = os.getenv("AZURE_COSMOS_KEY")
-cosmos_authentication_type = os.getenv("AZURE_COSMOS_AUTHENTICATION_TYPE", "key") #key or managed_identity
+cosmos_authentication_type = os.getenv("AZURE_COSMOS_AUTHENTICATION_TYPE", "key") # key or managed_identity
+
+if not cosmos_endpoint:
+    raise ValueError("AZURE_COSMOS_ENDPOINT environment variable is missing or empty")
+if cosmos_authentication_type == "key" and not cosmos_key:
+    raise ValueError("AZURE_COSMOS_KEY environment variable is missing or empty")
+
 if cosmos_authentication_type == "managed_identity":
     cosmos_client = CosmosClient(cosmos_endpoint, credential=DefaultAzureCredential())
 else:
