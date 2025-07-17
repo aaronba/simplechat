@@ -120,6 +120,57 @@ def register_route_frontend_chats(app):
         finally:
             os.remove(temp_file_path)
 
+        # PII Scrubbing for chat file uploads (if enabled)
+        try:
+            from functions_pii import should_reject_content_for_pii, check_content_for_pii, log_pii_redaction
+            
+            # Check if content should be rejected or redacted for PII
+            should_reject_pii, pii_result = should_reject_content_for_pii(extracted_content, "document_upload")
+            
+            if should_reject_pii:
+                # Log the rejection if logging is enabled
+                settings = get_settings()
+                if settings.get('pii_log_redactions', True):
+                    rejection_log = pii_result.copy()
+                    rejection_log['action'] = 'rejected_for_pii_during_chat_upload'
+                    rejection_log['document_filename'] = filename
+                    log_pii_redaction(
+                        user_id=user_id,
+                        conversation_id=conversation_id,
+                        redaction_details=rejection_log
+                    )
+                
+                # Get the detected PII types for the error message
+                redacted_items = pii_result.get('redacted_items', [])
+                detected_types = list(set([item['type'] for item in redacted_items]))
+                
+                return jsonify({
+                    'error': 'File upload rejected due to PII detection. Please remove personal information such as names, email addresses, phone numbers, or other identifying information and try again.',
+                    'error_type': 'pii_rejection',
+                    'detected_pii_types': detected_types,
+                    'filename': filename
+                }), 400
+            
+            # If PII was found but rejection is not enabled, redact the content
+            elif pii_result['enabled'] and pii_result['has_pii']:
+                extracted_content = pii_result['redacted_content']
+                
+                # Log PII redaction for audit
+                settings = get_settings()
+                if settings.get('pii_log_redactions', True):
+                    redaction_log = pii_result.copy()
+                    redaction_log['action'] = 'redacted_during_chat_upload'
+                    redaction_log['document_filename'] = filename
+                    log_pii_redaction(
+                        user_id=user_id,
+                        conversation_id=conversation_id,
+                        redaction_details=redaction_log
+                    )
+                
+        except Exception as e:
+            # If PII processing fails, log the error but continue with original content
+            print(f"Error during PII processing for chat upload '{filename}': {e}")
+
         try:
             file_message_id = f"{conversation_id}_file_{int(time.time())}_{random.randint(1000,9999)}"
             file_message = {

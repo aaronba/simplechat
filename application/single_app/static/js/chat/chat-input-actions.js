@@ -62,10 +62,27 @@ export function uploadFileToConversation(file) {
       return response.json().then((data) => {
         if (!response.ok) {
           console.error("Upload failed:", data.error || "Unknown error");
-          showToast(
-            "Error uploading file: " + (data.error || "Unknown error"),
-            "danger"
-          );
+          
+          // Handle PII rejection errors specially
+          if (response.status === 400 && data && data.error_type === 'pii_rejection') {
+            const detectedTypes = data.detected_pii_types || [];
+            const filename = data.filename || 'uploaded file';
+            const typesText = detectedTypes.length > 0 
+              ? `\n\nDetected PII types: ${detectedTypes.join(', ')}` 
+              : '';
+            
+            showToast(
+              `File upload rejected: ${filename}${typesText}\n\n${data.error || 'File contains personal information that must be removed before upload.'}`,
+              "danger",
+              8000  // Show longer for important PII message
+            );
+          } else {
+            showToast(
+              "Error uploading file: " + (data.error || "Unknown error"),
+              "danger"
+            );
+          }
+          
           throw new Error(data.error || "Upload failed");
         }
         return data;
