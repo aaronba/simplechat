@@ -115,6 +115,16 @@ def register_route_frontend_chats(app):
             else:
                 return jsonify({'error': 'Unsupported file type'}), 400
 
+            # Convert Azure DI page data to string for PII processing
+            # Azure DI returns list of dicts with page data, but PII functions expect string
+            if isinstance(extracted_content, list):
+                # Combine all page content into a single string
+                combined_content = ""
+                for page_data in extracted_content:
+                    if isinstance(page_data, dict) and 'content' in page_data:
+                        combined_content += page_data['content'] + "\n\n"
+                extracted_content = combined_content.strip()
+
         except Exception as e:
             return jsonify({'error': f'Error processing file: {str(e)}'}), 500
         finally:
