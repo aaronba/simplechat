@@ -138,6 +138,9 @@ def register_route_backend_settings(app):
             elif test_type == 'safety':
                 return _test_safety_connection(data)
 
+            elif test_type == 'pii_scrubbing':
+                return _test_pii_scrubbing(data)
+
             elif test_type == 'web_search':
                 return _test_web_search_connection(data)
 

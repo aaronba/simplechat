@@ -874,6 +874,15 @@ function setupToggles() {
         });
     }
 
+    const enablePiiScrubbing = document.getElementById('enable_pii_scrubbing');
+    if (enablePiiScrubbing) {
+        enablePiiScrubbing.addEventListener('change', function() {
+            const piiSettings = document.getElementById('pii_scrubbing_settings');
+            piiSettings.style.display = this.checked ? 'block' : 'none';
+            markFormAsModified();
+        });
+    }
+
     const enableContentSafetyApim = document.getElementById('enable_content_safety_apim');
     if (enableContentSafetyApim) {
         enableContentSafetyApim.addEventListener('change', function() {
@@ -1294,6 +1303,61 @@ function setupTestButtons() {
                     resultDiv.innerHTML = `<span class="text-success">${data.message}</span>`;
                 } else {
                     resultDiv.innerHTML = `<span class="text-danger">${data.error || 'Error testing Web Search'}</span>`;
+                }
+            } catch (err) {
+                resultDiv.innerHTML = `<span class="text-danger">Error: ${err.message}</span>`;
+            }
+        });
+    }
+
+    const testPiiBtn = document.getElementById('test_pii_button');
+    if (testPiiBtn) {
+        testPiiBtn.addEventListener('click', async () => {
+            const resultDiv = document.getElementById('test_pii_result');
+            resultDiv.innerHTML = 'Testing PII Scrubbing...';
+
+            const piiEnabled = document.getElementById('enable_pii_scrubbing').checked;
+
+            // Collect enabled PII types
+            const enabledTypes = {};
+            const piiTypes = ['email', 'phone', 'ssn', 'credit_card', 'ip_address', 'name', 'driver_license', 'date_of_birth'];
+            
+            piiTypes.forEach(type => {
+                const checkbox = document.getElementById(`pii_detect_${type}`);
+                if (checkbox) {
+                    enabledTypes[`pii_detect_${type}`] = checkbox.checked;
+                }
+            });
+
+            const payload = {
+                test_type: 'pii_scrubbing',
+                enabled: piiEnabled,
+                ...enabledTypes
+            };
+
+            try {
+                const resp = await fetch('/api/admin/settings/test_connection', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await resp.json();
+                if (resp.ok) {
+                    let resultHtml = `<span class="text-success">${data.message}</span>`;
+                    
+                    if (data.test_content && data.redacted_content) {
+                        resultHtml += `
+                            <div class="mt-2">
+                                <small class="text-muted"><strong>Original:</strong> ${data.test_content}</small><br>
+                                <small class="text-muted"><strong>Redacted:</strong> ${data.redacted_content}</small><br>
+                                <small class="text-muted"><strong>Items Found:</strong> ${data.redacted_items_count || 0} (${(data.enabled_types || []).join(', ')})</small>
+                            </div>
+                        `;
+                    }
+                    
+                    resultDiv.innerHTML = resultHtml;
+                } else {
+                    resultDiv.innerHTML = `<span class="text-danger">${data.error || 'Error testing PII Scrubbing'}</span>`;
                 }
             } catch (err) {
                 resultDiv.innerHTML = `<span class="text-danger">Error: ${err.message}</span>`;
