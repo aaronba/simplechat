@@ -352,7 +352,8 @@ def register_route_backend_chats(app):
                         log_pii_redaction(
                             user_id=user_id,
                             document_id=None,
-                            redaction_details=rejection_log
+                            redaction_details=rejection_log,
+                            conversation_id=conversation_id
                         )
                     
                     print(f"[PII Rejection] Rejected chat message containing {len(pii_result.get('redacted_items', []))} PII items")
@@ -374,7 +375,8 @@ def register_route_backend_chats(app):
                         log_pii_redaction(
                             user_id=user_id,
                             document_id=None,
-                            redaction_details=pii_result
+                            redaction_details=pii_result,
+                            conversation_id=conversation_id
                         )
                     
                     print(f"[PII Scrubbing] Redacted {len(pii_result['redacted_items'])} PII items from chat message")

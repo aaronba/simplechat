@@ -248,14 +248,16 @@ def should_reject_content_for_pii(content: str, context: str = "unknown") -> Tup
     return should_reject, pii_result
 
 
-def log_pii_redaction(user_id: str, document_id: str = None, redaction_details: Dict = None):
+def log_pii_redaction(user_id: str, document_id: str = None, redaction_details: Dict = None, conversation_id: str = None):
     """
     Log PII redaction action for audit purposes.
+    Uses content safety compatible format for consistent admin UI display.
     
     Args:
         user_id: ID of the user whose content was processed
         document_id: Optional document ID if this was document processing
         redaction_details: Details about what was redacted
+        conversation_id: Optional conversation ID if this was chat processing
     """
     try:
         from config import cosmos_safety_container
@@ -265,29 +267,62 @@ def log_pii_redaction(user_id: str, document_id: str = None, redaction_details: 
         if not redaction_details or not redaction_details.get('has_pii'):
             return  # Nothing to log
         
-        # Determine action type
-        action = redaction_details.get('action', 'pii_redacted')
-        if 'rejected' in action:
-            status = 'rejected'
-            action_description = 'Content rejected due to PII detection'
+        # Determine action type and status
+        action_type = redaction_details.get('action', 'pii_redacted')
+        if 'rejected' in action_type:
+            status = 'New'  # Use admin UI status values
+            action = 'None'  # Default admin action
+            reason = 'Content rejected due to PII detection'
         else:
-            status = 'completed'
-            action_description = 'PII redacted from content'
+            status = 'New'
+            action = 'None'
+            reason = 'PII redacted from content'
         
+        # Get redacted items and types
+        redacted_items = redaction_details.get('redacted_items', [])
+        redacted_types = list(set([item['type'] for item in redacted_items]))
+        
+        # Create triggered_categories in content safety format for admin UI compatibility
+        triggered_categories = []
+        for pii_type in redacted_types:
+            triggered_categories.append({
+                'category': f'PII_{pii_type.upper()}',
+                'severity': 2  # Medium severity for PII detection
+            })
+        
+        # Create a summary message for display
+        context = redaction_details.get('context', 'unknown')
+        pii_count = len(redacted_items)
+        if context == 'chat_message':
+            message_summary = f"Chat message containing {pii_count} PII item(s): {', '.join(redacted_types)}"
+        elif 'document' in context:
+            filename = redaction_details.get('document_filename', 'Unknown file')
+            message_summary = f"Document '{filename}' containing {pii_count} PII item(s): {', '.join(redacted_types)}"
+        else:
+            message_summary = f"Content ({context}) containing {pii_count} PII item(s): {', '.join(redacted_types)}"
+        
+        # Create log entry compatible with content safety format
         log_entry = {
             'id': str(uuid.uuid4()),
-            'type': 'pii_redaction',
             'user_id': user_id,
-            'document_id': document_id,
+            'conversation_id': conversation_id,  # For chat messages
+            'message': message_summary,  # Summary for admin UI display
+            'triggered_categories': triggered_categories,  # Compatible with admin UI
+            'blocklist_matches': [],  # Empty for PII logs
             'timestamp': datetime.utcnow().isoformat(),
-            'context': redaction_details.get('context', 'unknown'),
-            'redacted_items_count': len(redaction_details.get('redacted_items', [])),
-            'redacted_types': list(set([item['type'] for item in redaction_details.get('redacted_items', [])])),
-            'action': action,
-            'action_description': action_description,
-            'status': status,
+            'created_at': datetime.utcnow().isoformat(),  # For admin UI
+            'reason': reason,
+            'status': status,  # Admin UI editable field
+            'action': action,  # Admin UI editable field  
+            'notes': '',  # Admin UI editable field
             'metadata': {
-                'redacted_items': redaction_details.get('redacted_items', []),
+                'log_type': 'pii_detection',
+                'document_id': document_id,
+                'context': context,
+                'action_type': action_type,
+                'redacted_items_count': pii_count,
+                'redacted_types': redacted_types,
+                'redacted_items': redacted_items,
                 'has_original_content': bool(redaction_details.get('original_content')),
                 'content_length': len(redaction_details.get('original_content', '')),
                 'document_filename': redaction_details.get('document_filename')
@@ -299,10 +334,10 @@ def log_pii_redaction(user_id: str, document_id: str = None, redaction_details: 
         
         # Also add to file processing log if document_id is provided
         if document_id:
-            if status == 'rejected':
-                log_message = f"PII rejection: Content rejected due to {len(redaction_details.get('redacted_items', []))} PII items of types: {', '.join(log_entry['redacted_types'])}"
+            if 'rejected' in action_type:
+                log_message = f"PII rejection: Content rejected due to {pii_count} PII items of types: {', '.join(redacted_types)}"
             else:
-                log_message = f"PII redaction completed: {len(redaction_details.get('redacted_items', []))} items redacted of types: {', '.join(log_entry['redacted_types'])}"
+                log_message = f"PII redaction completed: {pii_count} items redacted of types: {', '.join(redacted_types)}"
             
             add_file_task_to_file_processing_log(
                 document_id=document_id,
