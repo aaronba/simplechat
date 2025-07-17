@@ -236,6 +236,20 @@ def get_settings():
         'azure_apim_content_safety_endpoint': '',
         'azure_apim_content_safety_subscription_key': '',
 
+        # PII Scrubbing Settings
+        'enable_pii_scrubbing': False,
+        'pii_detect_email': True,
+        'pii_detect_phone': True,
+        'pii_detect_ssn': True,
+        'pii_detect_credit_card': True,
+        'pii_detect_ip_address': True,
+        'pii_detect_name': False,  # More aggressive, disabled by default
+        'pii_detect_driver_license': True,
+        'pii_detect_date_of_birth': True,
+        'pii_log_redactions': True,
+        'pii_reject_documents_on_detection': False,  # Reject document uploads when PII is detected
+        'pii_reject_prompts_on_detection': False,    # Reject chat prompts when PII is detected
+
         # User Feedback / Conversation Archiving
         'enable_user_feedback': True,
         'require_member_of_feedback_admin': False,

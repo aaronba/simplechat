@@ -1856,6 +1856,113 @@
 
                 
                 <div class="card p-3 mb-3">
+                    <h5>PII Scrubbing</h5>
+                    <p class="text-muted">Enable automatic detection and redaction of Personally Identifiable Information (PII) from chat messages and document uploads.</p>
+                    <div class="form-group form-check form-switch mb-3">
+                        <input
+                            type="checkbox"
+                            class="form-check-input"
+                            id="enable_pii_scrubbing"
+                            name="enable_pii_scrubbing"
+                            {% if settings.enable_pii_scrubbing %}checked{% endif %}
+                        >
+                        <label class="form-check-label ms-2" for="enable_pii_scrubbing">
+                            Enable PII Scrubbing
+                        </label>
+                    </div>
+
+                    
+                    <div id="pii_scrubbing_settings"
+                         {% if not settings.enable_pii_scrubbing %}style="display: none;"{% endif %}>
+
+                        <h6 class="mb-3">PII Detection Types</h6>
+                        <p class="text-muted small mb-3">Select which types of personally identifiable information to detect and redact:</p>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-check form-switch mb-2">
+                                    <input type="checkbox" class="form-check-input" id="pii_detect_email" name="pii_detect_email" {% if settings.pii_detect_email %}checked{% endif %}>
+                                    <label class="form-check-label ms-2" for="pii_detect_email">Email Addresses</label>
+                                </div>
+                                <div class="form-check form-switch mb-2">
+                                    <input type="checkbox" class="form-check-input" id="pii_detect_phone" name="pii_detect_phone" {% if settings.pii_detect_phone %}checked{% endif %}>
+                                    <label class="form-check-label ms-2" for="pii_detect_phone">Phone Numbers</label>
+                                </div>
+                                <div class="form-check form-switch mb-2">
+                                    <input type="checkbox" class="form-check-input" id="pii_detect_ssn" name="pii_detect_ssn" {% if settings.pii_detect_ssn %}checked{% endif %}>
+                                    <label class="form-check-label ms-2" for="pii_detect_ssn">Social Security Numbers</label>
+                                </div>
+                                <div class="form-check form-switch mb-2">
+                                    <input type="checkbox" class="form-check-input" id="pii_detect_credit_card" name="pii_detect_credit_card" {% if settings.pii_detect_credit_card %}checked{% endif %}>
+                                    <label class="form-check-label ms-2" for="pii_detect_credit_card">Credit Card Numbers</label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check form-switch mb-2">
+                                    <input type="checkbox" class="form-check-input" id="pii_detect_ip_address" name="pii_detect_ip_address" {% if settings.pii_detect_ip_address %}checked{% endif %}>
+                                    <label class="form-check-label ms-2" for="pii_detect_ip_address">IP Addresses</label>
+                                </div>
+                                <div class="form-check form-switch mb-2">
+                                    <input type="checkbox" class="form-check-input" id="pii_detect_driver_license" name="pii_detect_driver_license" {% if settings.pii_detect_driver_license %}checked{% endif %}>
+                                    <label class="form-check-label ms-2" for="pii_detect_driver_license">Driver License Numbers</label>
+                                </div>
+                                <div class="form-check form-switch mb-2">
+                                    <input type="checkbox" class="form-check-input" id="pii_detect_date_of_birth" name="pii_detect_date_of_birth" {% if settings.pii_detect_date_of_birth %}checked{% endif %}>
+                                    <label class="form-check-label ms-2" for="pii_detect_date_of_birth">Date of Birth</label>
+                                </div>
+                                <div class="form-check form-switch mb-2">
+                                    <input type="checkbox" class="form-check-input" id="pii_detect_name" name="pii_detect_name" {% if settings.pii_detect_name %}checked{% endif %}>
+                                    <label class="form-check-label ms-2" for="pii_detect_name">Names (Basic Pattern) 
+                                        <span class="text-warning small">⚠️ May cause false positives</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        
+                        <div class="mt-3 mb-3">
+                            <div class="form-check form-switch">
+                                <input type="checkbox" class="form-check-input" id="pii_log_redactions" name="pii_log_redactions" {% if settings.pii_log_redactions %}checked{% endif %}>
+                                <label class="form-check-label ms-2" for="pii_log_redactions">Log PII Redaction Actions for Audit</label>
+                            </div>
+                            <p class="text-muted small mt-1">When enabled, PII redaction actions will be logged for compliance and audit purposes.</p>
+                        </div>
+
+                        <!-- New PII Rejection Settings -->
+                        <hr class="mt-4 mb-3">
+                        <h6 class="text-primary mb-3">🚫 PII Rejection Options</h6>
+                        <p class="text-muted small mb-3">Instead of redacting PII, you can choose to reject content entirely when PII is detected.</p>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <div class="form-check form-switch">
+                                    <input type="checkbox" class="form-check-input" id="pii_reject_prompts_on_detection" name="pii_reject_prompts_on_detection" {% if settings.pii_reject_prompts_on_detection %}checked{% endif %}>
+                                    <label class="form-check-label ms-2" for="pii_reject_prompts_on_detection">Reject Chat Prompts with PII</label>
+                                </div>
+                                <p class="text-muted small mt-1">When enabled, chat messages containing PII will be rejected instead of redacted.</p>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <div class="form-check form-switch">
+                                    <input type="checkbox" class="form-check-input" id="pii_reject_documents_on_detection" name="pii_reject_documents_on_detection" {% if settings.pii_reject_documents_on_detection %}checked{% endif %}>
+                                    <label class="form-check-label ms-2" for="pii_reject_documents_on_detection">Reject Document Uploads with PII</label>
+                                </div>
+                                <p class="text-muted small mt-1">When enabled, document uploads containing PII will be rejected instead of processed with redaction.</p>
+                            </div>
+                        </div>
+
+                        <div class="alert alert-warning small mt-3">
+                            <strong>⚠️ Important:</strong> When rejection is enabled, users will need to manually remove PII before submitting content. This provides stronger privacy protection but may impact user experience.
+                        </div>
+
+                        <button type="button" class="btn btn-secondary mt-3" id="test_pii_button">
+                            Test PII Scrubbing
+                        </button>
+                        <div id="test_pii_result" class="mt-2"></div>
+                    </div>
+                </div>
+
+                
+                <div class="card p-3 mb-3">
                     <h5>User Feedback</h5>
                     <p class="text-muted">Enable user feedback (thumbs up/down) for AI responses.</p>
                     <div class="form-group form-check form-switch mb-3">

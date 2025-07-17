@@ -138,6 +138,9 @@ def register_route_backend_settings(app):
             elif test_type == 'safety':
                 return _test_safety_connection(data)
 
+            elif test_type == 'pii_scrubbing':
+                return _test_pii_scrubbing(data)
+
             elif test_type == 'web_search':
                 return _test_web_search_connection(data)
 
@@ -435,6 +438,43 @@ def _test_safety_connection(payload):
             return jsonify({'message': 'Safety connection successful'}), 200
     except Exception as e:
         return jsonify({'error': f'Safety connection error: {str(e)}'}), 500
+
+
+def _test_pii_scrubbing(payload):
+    """Test PII scrubbing functionality with sample data."""
+    enabled = payload.get('enabled', False)
+    if not enabled:
+        return jsonify({'message': 'PII Scrubbing is disabled, skipping test'}), 200
+    
+    try:
+        from functions_pii import PIIDetector, get_pii_detection_summary
+        
+        # Get current PII detection summary
+        summary = get_pii_detection_summary()
+        
+        if not summary['enabled']:
+            return jsonify({'message': 'PII Scrubbing is not enabled in settings'}), 200
+        
+        # Test with sample data containing various PII types
+        test_content = "Contact John Doe at john.doe@example.com or call 555-123-4567. SSN: 123-45-6789. IP: 192.168.1.1"
+        
+        detector = PIIDetector()
+        redacted_content, redacted_items = detector.redact_pii(test_content)
+        
+        enabled_types = detector.get_enabled_pii_types()
+        
+        return jsonify({
+            'message': 'PII Scrubbing test successful',
+            'test_content': test_content,
+            'redacted_content': redacted_content,
+            'redacted_items_count': len(redacted_items),
+            'redacted_items': redacted_items,
+            'enabled_types': enabled_types,
+            'available_types': list(detector.pii_patterns.keys())
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'error': f'PII Scrubbing test error: {str(e)}'}), 500
 
 
 def _test_web_search_connection(payload):

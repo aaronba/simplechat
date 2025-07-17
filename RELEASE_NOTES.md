@@ -1,6 +1,21 @@
 <!-- BEGIN RELEASE_NOTES.MD BLOCK -->
 # Feature Release
 
+### **(v0.215.35)**
+
+#### New Features
+
+*   **Automatic PII Scrubbing**
+    *   Implemented comprehensive automatic detection and redaction of Personally Identifiable Information (PII) in both chat messages and document uploads. This enterprise-grade privacy feature helps organizations comply with data protection regulations by automatically removing sensitive information before AI processing and storage.
+        *   **Supported PII Types**: Email addresses, phone numbers, Social Security Numbers, credit card numbers, IP addresses, driver license numbers, dates of birth, and names (configurable)
+        *   **Chat Integration**: PII is detected and redacted from user messages before they reach the AI model, ensuring sensitive information never enters the conversation history
+        *   **Document Processing**: PII scrubbing is applied to both document content and metadata during upload and indexing
+        *   **Admin Controls**: Fully configurable in Admin Settings → Safety tab with individual toggles for each PII type
+        *   **Audit Logging**: Comprehensive logging of all redaction actions for compliance and review purposes
+        *   **Test Functionality**: Real-time test button shows exactly what PII would be detected and redacted
+        *   **Graceful Fallback**: If PII processing fails, the system continues with original content rather than blocking user actions
+        *   (Ref: `functions_pii.py`, `route_backend_chats.py`, `functions_documents.py`, `route_backend_settings.py`, `admin_settings.html`)
+
 ### **(v0.215.34)**
 
 #### New Features

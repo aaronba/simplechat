@@ -4,7 +4,7 @@ name: SimpleChat Docker Image Publish (dev branch)
 on:
   push:
     branches:
-    - nadoyle
+    - copilot/fix-c60f9f26-bfa7-4ae5-b3fa-aa7cf63067d6
 
   workflow_dispatch:
 

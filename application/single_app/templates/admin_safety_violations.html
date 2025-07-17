@@ -2,7 +2,7 @@
 
 {% extends "base.html" %}
 {% block title %}
-  Admin Safety Violations - {{ app_settings.app_title }}
+  Admin Safety & PII Violations - {{ app_settings.app_title }}
 {% endblock %}
 
 {% block head %}
@@ -76,9 +76,9 @@
 
 {% block content %}
 <div class="container">
-  <h2>Safety Violations</h2>
+  <h2>Safety & PII Violations</h2>
   <p class="text-muted">
-    Review and manage safety violations reported by the system. Use the filters to narrow down the list.
+    Review and manage content safety and PII detection violations reported by the system. Use the filters to narrow down the list.
   </p>
   <hr/>
 
@@ -310,10 +310,25 @@
   function renderLogRow(log) {
     const row = $("<tr></tr>"); //.data("logId", log.id); // Not strictly needed if we pass log to edit handler
 
-    const categories = (log.triggered_categories || [])
-                          .map(cat => `${cat.category}(s=${cat.severity})`)
-                          .join(", ");
-    const createdVal = log.created_at ? new Date(log.created_at).toLocaleString() : "N/A";
+    // Determine log type and format categories appropriately
+    const logType = log.metadata?.log_type || 'content_safety';
+    let categories = '';
+    
+    if (logType === 'pii_detection') {
+      // For PII logs, show redacted types in a user-friendly format
+      categories = (log.triggered_categories || [])
+                        .map(cat => cat.category.replace('PII_', '').toLowerCase())
+                        .join(", ");
+      if (categories) categories = `PII: ${categories}`;
+    } else {
+      // For content safety logs, show original format
+      categories = (log.triggered_categories || [])
+                        .map(cat => `${cat.category}(s=${cat.severity})`)
+                        .join(", ");
+    }
+    
+    const createdVal = log.created_at ? new Date(log.created_at).toLocaleString() : 
+                       (log.timestamp ? new Date(log.timestamp).toLocaleString() : "N/A");
     const updatedVal = log.last_updated ? new Date(log.last_updated).toLocaleString() : "N/A";
 
     // Build cells using jQuery's .append() and .text() for safety
@@ -418,9 +433,30 @@
 
   // --- MODAL HANDLING ---
   function openEditModal(log) {
-    const categories = (log.triggered_categories || [])
-                          .map(cat => `${cat.category}(s=${cat.severity})`)
-                          .join(", ");
+    // Determine log type and format categories appropriately
+    const logType = log.metadata?.log_type || 'content_safety';
+    let categories = '';
+    
+    if (logType === 'pii_detection') {
+      // For PII logs, show redacted types in a user-friendly format
+      categories = (log.triggered_categories || [])
+                        .map(cat => cat.category.replace('PII_', '').toLowerCase())
+                        .join(", ");
+      if (categories) categories = `PII Types: ${categories}`;
+      
+      // Show additional PII-specific info
+      if (log.metadata?.redacted_items_count) {
+        categories += `\nItems redacted: ${log.metadata.redacted_items_count}`;
+      }
+      if (log.metadata?.context) {
+        categories += `\nContext: ${log.metadata.context}`;
+      }
+    } else {
+      // For content safety logs, show original format
+      categories = (log.triggered_categories || [])
+                        .map(cat => `${cat.category}(s=${cat.severity})`)
+                        .join(", ");
+    }
 
     // Populate read-only fields
     $("#editUserId").text(log.user_id || "N/A");

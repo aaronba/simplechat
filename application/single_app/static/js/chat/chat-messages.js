@@ -653,6 +653,17 @@ export function actuallySendMessage(finalMessageToSend) {
           null, // No model name for safety message
           error.data.message_id // Use message_id if provided in error
         );
+      } else if (error.status === 400 && error.data && error.data.error_type === 'pii_rejection') {
+        // Handle PII rejection errors
+        const detectedTypes = error.data.detected_pii_types || [];
+        const typesText = detectedTypes.length > 0 
+          ? `**Detected PII types**: ${detectedTypes.join(', ')}\n\n` 
+          : '';
+        
+        appendMessage(
+          "Error",
+          `${typesText}${error.data.error || 'Message rejected due to PII detection.'}`
+        );
       } else {
         // Show specific embedding error if present, or if status is 500 (embedding backend error)
         const errMsg = (error.message || "").toLowerCase();

@@ -2,7 +2,7 @@
 
 {% extends "base.html" %}
 {% block title %}
-  My Safety Violations - {{ app_settings.app_title }}
+  My Safety & PII Violations - {{ app_settings.app_title }}
 {% endblock %}
 
 {% block head %}
@@ -76,9 +76,9 @@
 {% block content %}
 
 <div class="container">
-  <h2>My Safety Violations</h2>
+  <h2>My Safety & PII Violations</h2>
   <p class="text-muted">
-    Below is a list of your safety violations. You can review each violation's details and
+    Below is a list of your content safety and PII detection violations. You can review each violation's details and
     update your personal notes using the 'View/Edit' button. Use filters to narrow the list.
   </p>
   <hr />
@@ -287,9 +287,24 @@
 
   function renderLogRow(log) {
     const row = $("<tr></tr>");
-    const triggered = (log.triggered_categories || [])
-      .map(cat => `${cat.category}(s=${cat.severity})`)
-      .join(", ");
+    
+    // Determine log type and format categories appropriately
+    const logType = log.metadata?.log_type || 'content_safety';
+    let triggered = '';
+    
+    if (logType === 'pii_detection') {
+      // For PII logs, show redacted types in a user-friendly format
+      triggered = (log.triggered_categories || [])
+                        .map(cat => cat.category.replace('PII_', '').toLowerCase())
+                        .join(", ");
+      if (triggered) triggered = `PII: ${triggered}`;
+    } else {
+      // For content safety logs, show original format
+      triggered = (log.triggered_categories || [])
+        .map(cat => `${cat.category}(s=${cat.severity})`)
+        .join(", ");
+    }
+    
     const userNotes = log.user_notes || "";
 
     // Build cells using jQuery's .append() and .text()
@@ -377,9 +392,32 @@
     // Populate read-only fields
     $("#detailId").text(log.id || "N/A");
     $("#detailMessage").text(log.message || "");
-    const triggered = (log.triggered_categories || [])
-      .map(cat => `${cat.category}(s=${cat.severity})`)
-      .join(", ");
+    
+    // Determine log type and format categories appropriately
+    const logType = log.metadata?.log_type || 'content_safety';
+    let triggered = '';
+    
+    if (logType === 'pii_detection') {
+      // For PII logs, show redacted types in a user-friendly format
+      triggered = (log.triggered_categories || [])
+                        .map(cat => cat.category.replace('PII_', '').toLowerCase())
+                        .join(", ");
+      if (triggered) triggered = `PII Types: ${triggered}`;
+      
+      // Show additional PII-specific info
+      if (log.metadata?.redacted_items_count) {
+        triggered += `\nItems redacted: ${log.metadata.redacted_items_count}`;
+      }
+      if (log.metadata?.context) {
+        triggered += `\nContext: ${log.metadata.context}`;
+      }
+    } else {
+      // For content safety logs, show original format
+      triggered = (log.triggered_categories || [])
+        .map(cat => `${cat.category}(s=${cat.severity})`)
+        .join(", ");
+    }
+    
     $("#detailCategories").text(triggered || "None");
     $("#detailStatus").text(log.status || "New");
     $("#detailAction").text(log.action || "None");
