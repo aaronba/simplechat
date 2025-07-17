@@ -471,6 +471,20 @@ def register_route_frontend_admin_settings(app):
 
                 'metadata_extraction_model': form_data.get('metadata_extraction_model', '').strip(),
 
+                # --- PII Scrubbing Settings ---
+                'enable_pii_scrubbing': form_data.get('enable_pii_scrubbing') == 'on',
+                'pii_detect_email': form_data.get('pii_detect_email') == 'on',
+                'pii_detect_phone': form_data.get('pii_detect_phone') == 'on',
+                'pii_detect_ssn': form_data.get('pii_detect_ssn') == 'on',
+                'pii_detect_credit_card': form_data.get('pii_detect_credit_card') == 'on',
+                'pii_detect_ip_address': form_data.get('pii_detect_ip_address') == 'on',
+                'pii_detect_name': form_data.get('pii_detect_name') == 'on',
+                'pii_detect_driver_license': form_data.get('pii_detect_driver_license') == 'on',
+                'pii_detect_date_of_birth': form_data.get('pii_detect_date_of_birth') == 'on',
+                'pii_log_redactions': form_data.get('pii_log_redactions') == 'on',
+                'pii_reject_prompts_on_detection': form_data.get('pii_reject_prompts_on_detection') == 'on',
+                'pii_reject_documents_on_detection': form_data.get('pii_reject_documents_on_detection') == 'on',
+
                 # --- Banner fields ---
                 'classification_banner_enabled': classification_banner_enabled,
                 'classification_banner_text': classification_banner_text,

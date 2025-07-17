@@ -738,13 +738,39 @@ def save_chunks(page_text_content, page_number, file_name, user_id, document_id,
     # PII Scrubbing for document content (if enabled)
     original_page_text_content = page_text_content
     try:
-        from functions_pii import check_content_for_pii, log_pii_redaction
+        from functions_pii import should_reject_content_for_pii, check_content_for_pii, log_pii_redaction
         from functions_settings import get_settings
         
         settings = get_settings()
-        pii_result = check_content_for_pii(page_text_content, f"document_content_page_{page_number}")
         
-        if pii_result['enabled'] and pii_result['has_pii']:
+        # Check if we should reject this page content (fallback check)
+        # This is a secondary check in case initial scan missed something
+        should_reject_pii, pii_result = should_reject_content_for_pii(page_text_content, f"document_content_page_{page_number}")
+        
+        if should_reject_pii:
+            # Log the rejection for audit
+            if settings.get('pii_log_redactions', True):
+                rejection_log = pii_result.copy()
+                rejection_log['action'] = 'rejected_for_pii_during_processing'
+                log_pii_redaction(
+                    user_id=group_id if is_group else user_id,
+                    document_id=document_id,
+                    redaction_details=rejection_log
+                )
+            
+            add_file_task_to_file_processing_log(
+                document_id=document_id,
+                user_id=group_id if is_group else user_id,
+                content=f"Document processing halted - PII detected on page {page_number} with rejection policy enabled"
+            )
+            
+            print(f"[PII Rejection] Document processing halted due to PII detected on page {page_number}")
+            
+            # Raise exception to stop processing
+            raise ValueError(f"Document processing stopped due to PII detection on page {page_number}. Please remove personal information and try again.")
+        
+        # If not rejecting, proceed with redaction as before
+        elif pii_result['enabled'] and pii_result['has_pii']:
             page_text_content = pii_result['redacted_content']
             
             add_file_task_to_file_processing_log(
@@ -2951,6 +2977,79 @@ def process_document_upload_background(document_id, user_id, temp_file_path, ori
         file_size = os.path.getsize(temp_file_path)
         if file_size > max_file_size_bytes:
             raise ValueError(f"File exceeds maximum allowed size ({max_file_size_bytes / (1024*1024):.1f} MB).")
+
+        # --- 0.5 Early PII Detection and Rejection Check ---
+        # Perform an initial scan for PII before processing begins
+        try:
+            from functions_pii import should_reject_content_for_pii, log_pii_redaction
+            
+            # Read a sample of the document for initial PII detection
+            sample_content = ""
+            if file_ext == '.txt':
+                with open(temp_file_path, 'r', encoding='utf-8') as f:
+                    # Read first 5000 characters for initial PII scan
+                    sample_content = f.read(5000)
+            elif file_ext in ['.pdf', '.docx', '.doc']:
+                # For more complex formats, we'll do a quick extraction
+                try:
+                    if file_ext == '.pdf':
+                        import PyPDF2
+                        with open(temp_file_path, 'rb') as f:
+                            reader = PyPDF2.PdfReader(f)
+                            # Read first few pages for sample
+                            for i, page in enumerate(reader.pages[:3]):  # First 3 pages
+                                if i < 3:
+                                    sample_content += page.extract_text() + "\n"
+                    elif file_ext in ['.docx', '.doc']:
+                        from docx import Document
+                        doc = Document(temp_file_path)
+                        # Read first few paragraphs for sample
+                        for i, para in enumerate(doc.paragraphs[:10]):  # First 10 paragraphs
+                            if i < 10:
+                                sample_content += para.text + "\n"
+                except Exception as e:
+                    print(f"Warning: Could not perform initial PII scan on {file_ext} file: {e}")
+                    # Continue without initial scan if extraction fails
+                    sample_content = ""
+            
+            # Check for PII in the sample if we got content
+            if sample_content.strip():
+                should_reject_pii, pii_result = should_reject_content_for_pii(sample_content, "document_upload")
+                
+                if should_reject_pii:
+                    # Log the rejection for audit
+                    if settings.get('pii_log_redactions', True):
+                        rejection_log = pii_result.copy()
+                        rejection_log['action'] = 'rejected_for_pii'
+                        rejection_log['document_filename'] = original_filename
+                        log_pii_redaction(
+                            user_id=group_id if is_group else user_id,
+                            document_id=document_id,
+                            redaction_details=rejection_log
+                        )
+                    
+                    # Update document status to rejected
+                    update_doc_callback(
+                        status="Rejected - Contains PII",
+                        percentage_complete=100,
+                        error_message=f"Document rejected due to PII detection. Found: {', '.join(set([item['type'] for item in pii_result.get('redacted_items', [])]))}"
+                    )
+                    
+                    print(f"[PII Rejection] Rejected document upload {original_filename} containing {len(pii_result.get('redacted_items', []))} PII items")
+                    
+                    # Cleanup temp file
+                    if os.path.exists(temp_file_path):
+                        os.remove(temp_file_path)
+                    
+                    raise ValueError(f"Document rejected due to PII detection. Please remove personal information such as names, email addresses, phone numbers, or other identifying information and try again.")
+                
+        except ValueError as ve:
+            # Re-raise ValueError (including PII rejection)
+            raise ve
+        except Exception as e:
+            print(f"Warning: Error during initial PII scan: {e}")
+            # Continue with processing if initial PII scan fails
+            pass
 
         update_doc_callback(status=f"Processing file {original_filename}, type: {file_ext}")
 

@@ -247,6 +247,8 @@ def get_settings():
         'pii_detect_driver_license': True,
         'pii_detect_date_of_birth': True,
         'pii_log_redactions': True,
+        'pii_reject_documents_on_detection': False,  # Reject document uploads when PII is detected
+        'pii_reject_prompts_on_detection': False,    # Reject chat prompts when PII is detected
 
         # User Feedback / Conversation Archiving
         'enable_user_feedback': True,

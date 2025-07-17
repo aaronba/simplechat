@@ -211,6 +211,43 @@ def check_content_for_pii(content: str, context: str = "unknown") -> Dict[str, A
     return detector.check_and_redact_content(content, context)
 
 
+def should_reject_content_for_pii(content: str, context: str = "unknown") -> Tuple[bool, Dict[str, Any]]:
+    """
+    Check if content should be rejected based on PII detection and settings.
+    
+    Args:
+        content: Content to check
+        context: Context type - "chat_message" or "document_content" or similar
+        
+    Returns:
+        Tuple of (should_reject, pii_detection_result)
+    """
+    settings = get_settings()
+    pii_enabled = settings.get('enable_pii_scrubbing', False)
+    
+    # If PII scrubbing is not enabled, don't reject
+    if not pii_enabled:
+        return False, {'enabled': False, 'has_pii': False, 'context': context}
+    
+    # Check for PII
+    pii_result = check_content_for_pii(content, context)
+    
+    # If no PII found, don't reject
+    if not pii_result.get('has_pii', False):
+        return False, pii_result
+    
+    # Check if rejection is enabled for this context
+    should_reject = False
+    if context in ['chat_message', 'prompt']:
+        should_reject = settings.get('pii_reject_prompts_on_detection', False)
+    elif context in ['document_content', 'document_metadata', 'document_upload']:
+        should_reject = settings.get('pii_reject_documents_on_detection', False)
+    elif 'document' in context.lower():
+        should_reject = settings.get('pii_reject_documents_on_detection', False)
+    
+    return should_reject, pii_result
+
+
 def log_pii_redaction(user_id: str, document_id: str = None, redaction_details: Dict = None):
     """
     Log PII redaction action for audit purposes.
@@ -228,6 +265,15 @@ def log_pii_redaction(user_id: str, document_id: str = None, redaction_details: 
         if not redaction_details or not redaction_details.get('has_pii'):
             return  # Nothing to log
         
+        # Determine action type
+        action = redaction_details.get('action', 'pii_redacted')
+        if 'rejected' in action:
+            status = 'rejected'
+            action_description = 'Content rejected due to PII detection'
+        else:
+            status = 'completed'
+            action_description = 'PII redacted from content'
+        
         log_entry = {
             'id': str(uuid.uuid4()),
             'type': 'pii_redaction',
@@ -237,12 +283,14 @@ def log_pii_redaction(user_id: str, document_id: str = None, redaction_details: 
             'context': redaction_details.get('context', 'unknown'),
             'redacted_items_count': len(redaction_details.get('redacted_items', [])),
             'redacted_types': list(set([item['type'] for item in redaction_details.get('redacted_items', [])])),
-            'action': 'pii_redacted',
-            'status': 'completed',
+            'action': action,
+            'action_description': action_description,
+            'status': status,
             'metadata': {
                 'redacted_items': redaction_details.get('redacted_items', []),
                 'has_original_content': bool(redaction_details.get('original_content')),
-                'content_length': len(redaction_details.get('original_content', ''))
+                'content_length': len(redaction_details.get('original_content', '')),
+                'document_filename': redaction_details.get('document_filename')
             }
         }
         
@@ -251,14 +299,19 @@ def log_pii_redaction(user_id: str, document_id: str = None, redaction_details: 
         
         # Also add to file processing log if document_id is provided
         if document_id:
+            if status == 'rejected':
+                log_message = f"PII rejection: Content rejected due to {len(redaction_details.get('redacted_items', []))} PII items of types: {', '.join(log_entry['redacted_types'])}"
+            else:
+                log_message = f"PII redaction completed: {len(redaction_details.get('redacted_items', []))} items redacted of types: {', '.join(log_entry['redacted_types'])}"
+            
             add_file_task_to_file_processing_log(
                 document_id=document_id,
                 user_id=user_id,
-                content=f"PII redaction completed: {len(redaction_details.get('redacted_items', []))} items redacted of types: {', '.join(log_entry['redacted_types'])}"
+                content=log_message
             )
         
     except Exception as e:
-        print(f"Error logging PII redaction: {e}")
+        print(f"Error logging PII action: {e}")
 
 
 def get_pii_detection_summary() -> Dict[str, Any]:

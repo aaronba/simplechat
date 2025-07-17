@@ -1928,6 +1928,32 @@
                             <p class="text-muted small mt-1">When enabled, PII redaction actions will be logged for compliance and audit purposes.</p>
                         </div>
 
+                        <!-- New PII Rejection Settings -->
+                        <hr class="mt-4 mb-3">
+                        <h6 class="text-primary mb-3">🚫 PII Rejection Options</h6>
+                        <p class="text-muted small mb-3">Instead of redacting PII, you can choose to reject content entirely when PII is detected.</p>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <div class="form-check form-switch">
+                                    <input type="checkbox" class="form-check-input" id="pii_reject_prompts_on_detection" name="pii_reject_prompts_on_detection" {% if settings.pii_reject_prompts_on_detection %}checked{% endif %}>
+                                    <label class="form-check-label ms-2" for="pii_reject_prompts_on_detection">Reject Chat Prompts with PII</label>
+                                </div>
+                                <p class="text-muted small mt-1">When enabled, chat messages containing PII will be rejected instead of redacted.</p>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <div class="form-check form-switch">
+                                    <input type="checkbox" class="form-check-input" id="pii_reject_documents_on_detection" name="pii_reject_documents_on_detection" {% if settings.pii_reject_documents_on_detection %}checked{% endif %}>
+                                    <label class="form-check-label ms-2" for="pii_reject_documents_on_detection">Reject Document Uploads with PII</label>
+                                </div>
+                                <p class="text-muted small mt-1">When enabled, document uploads containing PII will be rejected instead of processed with redaction.</p>
+                            </div>
+                        </div>
+
+                        <div class="alert alert-warning small mt-3">
+                            <strong>⚠️ Important:</strong> When rejection is enabled, users will need to manually remove PII before submitting content. This provides stronger privacy protection but may impact user experience.
+                        </div>
+
                         <button type="button" class="btn btn-secondary mt-3" id="test_pii_button">
                             Test PII Scrubbing
                         </button>

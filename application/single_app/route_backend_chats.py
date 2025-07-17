@@ -331,18 +331,41 @@ def register_route_backend_chats(app):
                 print(f"[Content Safety] Unexpected error: {ex}")
 
         # ---------------------------------------------------------------------
-# region        # 3.5) PII Scrubbing - Redact PII from user message if enabled
+# region        # 3.5) PII Scrubbing - Check for PII and either redact or reject
         # ---------------------------------------------------------------------
         pii_redacted = False
         original_user_message = user_message
         
         if not blocked:  # Only process PII if not already blocked by content safety
             try:
-                from functions_pii import check_content_for_pii, log_pii_redaction
+                from functions_pii import should_reject_content_for_pii, check_content_for_pii, log_pii_redaction
                 
-                pii_result = check_content_for_pii(user_message, "chat_message")
+                # First check if we should reject based on PII detection
+                should_reject_pii, pii_result = should_reject_content_for_pii(user_message, "chat_message")
                 
-                if pii_result['enabled'] and pii_result['has_pii']:
+                if should_reject_pii:
+                    # Log the rejection for audit
+                    if settings.get('pii_log_redactions', True):
+                        # Create a modified result for logging the rejection
+                        rejection_log = pii_result.copy()
+                        rejection_log['action'] = 'rejected_for_pii'
+                        log_pii_redaction(
+                            user_id=user_id,
+                            document_id=None,
+                            redaction_details=rejection_log
+                        )
+                    
+                    print(f"[PII Rejection] Rejected chat message containing {len(pii_result.get('redacted_items', []))} PII items")
+                    
+                    # Return error response for PII rejection
+                    return jsonify({
+                        'error': 'Message rejected due to PII detection. Please remove personal information such as names, email addresses, phone numbers, or other identifying information and try again.',
+                        'error_type': 'pii_rejection',
+                        'detected_pii_types': list(set([item['type'] for item in pii_result.get('redacted_items', [])]))
+                    }), 400
+                
+                # If not rejecting, proceed with redaction as before
+                elif pii_result['enabled'] and pii_result['has_pii']:
                     user_message = pii_result['redacted_content']
                     pii_redacted = True
                     
@@ -357,8 +380,8 @@ def register_route_backend_chats(app):
                     print(f"[PII Scrubbing] Redacted {len(pii_result['redacted_items'])} PII items from chat message")
                     
             except Exception as e:
-                print(f"[PII Scrubbing] Error during PII redaction: {e}")
-                # Continue with original message if PII scrubbing fails
+                print(f"[PII Processing] Error during PII detection/processing: {e}")
+                # Continue with original message if PII processing fails
                 user_message = original_user_message
 
         # ---------------------------------------------------------------------
