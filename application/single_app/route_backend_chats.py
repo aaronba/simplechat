@@ -331,6 +331,37 @@ def register_route_backend_chats(app):
                 print(f"[Content Safety] Unexpected error: {ex}")
 
         # ---------------------------------------------------------------------
+# region        # 3.5) PII Scrubbing - Redact PII from user message if enabled
+        # ---------------------------------------------------------------------
+        pii_redacted = False
+        original_user_message = user_message
+        
+        if not blocked:  # Only process PII if not already blocked by content safety
+            try:
+                from functions_pii import check_content_for_pii, log_pii_redaction
+                
+                pii_result = check_content_for_pii(user_message, "chat_message")
+                
+                if pii_result['enabled'] and pii_result['has_pii']:
+                    user_message = pii_result['redacted_content']
+                    pii_redacted = True
+                    
+                    # Log PII redaction for audit
+                    if settings.get('pii_log_redactions', True):
+                        log_pii_redaction(
+                            user_id=user_id,
+                            document_id=None,
+                            redaction_details=pii_result
+                        )
+                    
+                    print(f"[PII Scrubbing] Redacted {len(pii_result['redacted_items'])} PII items from chat message")
+                    
+            except Exception as e:
+                print(f"[PII Scrubbing] Error during PII redaction: {e}")
+                # Continue with original message if PII scrubbing fails
+                user_message = original_user_message
+
+        # ---------------------------------------------------------------------
 # region        # 4) Augmentation (Search, Bing, etc.) - Run *before* final history prep
         # ---------------------------------------------------------------------
         

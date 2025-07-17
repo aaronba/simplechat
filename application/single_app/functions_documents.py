@@ -735,6 +735,44 @@ def save_chunks(page_text_content, page_number, file_name, user_id, document_id,
         print(f"Error updating document status or retrieving metadata for document {document_id}: {repr(e)}\nTraceback:\n{traceback.format_exc()}")
         raise
 
+    # PII Scrubbing for document content (if enabled)
+    original_page_text_content = page_text_content
+    try:
+        from functions_pii import check_content_for_pii, log_pii_redaction
+        from functions_settings import get_settings
+        
+        settings = get_settings()
+        pii_result = check_content_for_pii(page_text_content, f"document_content_page_{page_number}")
+        
+        if pii_result['enabled'] and pii_result['has_pii']:
+            page_text_content = pii_result['redacted_content']
+            
+            add_file_task_to_file_processing_log(
+                document_id=document_id,
+                user_id=group_id if is_group else user_id,
+                content=f"PII scrubbing completed for page {page_number}: {len(pii_result['redacted_items'])} items redacted"
+            )
+            
+            # Log PII redaction for audit
+            if settings.get('pii_log_redactions', True):
+                log_pii_redaction(
+                    user_id=group_id if is_group else user_id,
+                    document_id=document_id,
+                    redaction_details=pii_result
+                )
+            
+            print(f"[PII Scrubbing] Redacted {len(pii_result['redacted_items'])} PII items from page {page_number} of document {document_id}")
+            
+    except Exception as e:
+        add_file_task_to_file_processing_log(
+            document_id=document_id,
+            user_id=group_id if is_group else user_id,
+            content=f"Error during PII scrubbing for page {page_number}: {e}"
+        )
+        print(f"Error during PII scrubbing for page {page_number}: {e}")
+        # Continue with original content if PII scrubbing fails
+        page_text_content = original_page_text_content
+
     # Generate embedding
     try:
         #status = f"Generating embedding for page {page_number}"
@@ -1596,6 +1634,62 @@ def extract_document_metadata(document_id, user_id, group_id=None):
                 content=f"Error checking content safety for document metadata: {e}"
             )
             print(f"Error checking content safety for document metadata: {e}")
+
+    # --- Step 3.5: PII Scrubbing for Document Metadata (if enabled) ---
+    if not blocked:  # Only process PII if not already blocked by content safety
+        try:
+            from functions_pii import check_content_for_pii, log_pii_redaction
+            
+            # Check metadata for PII
+            metadata_text = json.dumps(meta_data)
+            pii_result = check_content_for_pii(metadata_text, "document_metadata")
+            
+            if pii_result['enabled'] and pii_result['has_pii']:
+                # Redact PII from the metadata JSON and parse it back
+                redacted_metadata_text = pii_result['redacted_content']
+                try:
+                    # Try to parse the redacted JSON back to dict
+                    redacted_meta_data = json.loads(redacted_metadata_text)
+                    meta_data = redacted_meta_data
+                    
+                    add_file_task_to_file_processing_log(
+                        document_id=document_id,
+                        user_id=group_id if is_group else user_id,
+                        content=f"PII scrubbing completed for document metadata: {len(pii_result['redacted_items'])} items redacted"
+                    )
+                    
+                    # Log PII redaction for audit
+                    if settings.get('pii_log_redactions', True):
+                        log_pii_redaction(
+                            user_id=group_id if is_group else user_id,
+                            document_id=document_id,
+                            redaction_details=pii_result
+                        )
+                    
+                except json.JSONDecodeError:
+                    # If redacted text is not valid JSON, just replace sensitive fields individually
+                    add_file_task_to_file_processing_log(
+                        document_id=document_id,
+                        user_id=group_id if is_group else user_id,
+                        content=f"PII scrubbing: Fallback to field-level redaction due to JSON parse error"
+                    )
+                    
+                    # Apply PII redaction to individual metadata fields
+                    for field in ['title', 'author', 'keywords', 'summary']:
+                        if field in meta_data and meta_data[field]:
+                            field_result = check_content_for_pii(str(meta_data[field]), f"document_metadata_{field}")
+                            if field_result['enabled'] and field_result['has_pii']:
+                                meta_data[field] = field_result['redacted_content']
+                
+                print(f"[PII Scrubbing] Redacted {len(pii_result['redacted_items'])} PII items from document metadata")
+                
+        except Exception as e:
+            add_file_task_to_file_processing_log(
+                document_id=document_id,
+                user_id=group_id if is_group else user_id,
+                content=f"Error during PII scrubbing for document metadata: {e}"
+            )
+            print(f"Error during PII scrubbing for document metadata: {e}")
 
     # --- Step 4: Hybrid Search ---
     try:
