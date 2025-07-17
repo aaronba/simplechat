@@ -78,6 +78,8 @@ Ensures governance and security by reviewing all user messages before they inter
 -   **Enhances security** by filtering potentially malicious or sensitive queries before they interact with external systems or internal data.
 -   **Optional RBAC** (`SafetyAdmin` App Role) restricts access to the Safety Violation Admin View, allowing designated personnel to review flagged content.
 
+**PII Scrubbing**: In addition to content safety, the application includes automatic detection and redaction of Personally Identifiable Information (PII) such as email addresses, phone numbers, SSNs, and other sensitive data from both chat messages and uploaded documents. This enterprise-grade privacy feature helps organizations comply with data protection regulations by ensuring sensitive information is masked before AI processing and storage. PII scrubbing is fully configurable in the Admin Settings with individual controls for each PII type.
+
 | ![Content Safety - Settings](./images/content_safety-settings.png) | ![Content Safety - In Action](./images/content_safety-in_action.png) | ![Content Safety - Cosmos Container](./images/content_safety-cosmos_container.png) |
 | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ |
 | ![Content Safety - Management](./images/content_safety-management.png) | ![Content Safety - Taking Action](./images/content_safety-taking_action.png) | ![Content Safety - User View](./images/content_safety-user_view.png) |
