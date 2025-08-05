@@ -1,0 +1,8 @@
+# Minimal requirements for simple_hybrid_test.py
+# Simple Azure AI Search Test Suite
+
+# Required - Azure AI Search functionality
+azure-search-documents>=11.4.0
+
+# Optional - enables hybrid search with vector embeddings
+openai>=1.0.0
