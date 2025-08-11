@@ -28,6 +28,9 @@ COPY --chown=nonroot:nonroot . ./
 # Copy the virtualenv from the builder stage
 COPY --from=builder --chown=nonroot:nonroot /app/venv /app/venv
 
+# Create volume for certificate mounting
+VOLUME ["/app/certs"]
+
 # Expose port (if needed for web interface)
 EXPOSE 8000
 
