@@ -209,24 +209,47 @@ Please provide a direct, helpful answer based on this information. If the inform
         # Update the query
         self.search_summary['query'] = query
         
-        # Get the highest-scoring result
+        # Get the highest-scoring result from this search
         best_result = search_results[0] if search_results else None
         if best_result:
             file_name = best_result.get('file_name', 'Unknown')
-            score = best_result.get('@search.score', 'N/A')
-            self.search_summary['highest_scoring_source'] = f"{file_name} (Score: {score:.3f}, {index_type} index)"
+            # Look for score in the right field - our search_results use 'score' not '@search.score'
+            score = best_result.get('score', best_result.get('@search.score', 0))
             
-            # Store best results info (top 3)
-            self.search_summary['best_results'] = []
-            for i, result in enumerate(search_results[:3]):
-                result_info = {
-                    'file_name': result.get('file_name', 'Unknown'),
-                    'score': result.get('@search.score', 'N/A'),
-                    'index': index_type
-                }
-                self.search_summary['best_results'].append(result_info)
+            # Handle numeric score formatting safely
+            if isinstance(score, (int, float)):
+                score_str = f"{score:.3f}"
+            else:
+                score_str = str(score)
+            
+            # Only update the highest scoring source if this score is better
+            current_best_score = 0
+            if self.search_summary.get('highest_scoring_source'):
+                # Extract current best score from the existing string
+                import re
+                match = re.search(r'Score: ([\d.]+)', self.search_summary['highest_scoring_source'])
+                if match:
+                    current_best_score = float(match.group(1))
+            
+            # Update if this is the new highest score
+            if isinstance(score, (int, float)) and score > current_best_score:
+                self.search_summary['highest_scoring_source'] = f"{file_name} (Score: {score_str}, {index_type} index)"
+                logger.debug(f"New highest scoring result: {file_name} with score {score:.3f} from {index_type} index")
+                
+                # Update best results only if this is truly the new best
+                self.search_summary['best_results'] = []
+                for i, result in enumerate(search_results[:3]):
+                    # Look for score in the right field
+                    result_score = result.get('score', result.get('@search.score', 'N/A'))
+                    result_info = {
+                        'file_name': result.get('file_name', 'Unknown'),
+                        'score': result_score,
+                        'index': index_type
+                    }
+                    self.search_summary['best_results'].append(result_info)
+                    logger.debug(f"Updated best result {i+1}: {result_info['file_name']} with score {result_score}")
         
-        # Update semantic answers and enhanced answer
+        # Update semantic answers and enhanced answer (always update these)
         if semantic_answers:
             self.search_summary['semantic_answers'] = semantic_answers
         if enhanced_answer:
@@ -318,10 +341,19 @@ Please provide a direct, helpful answer based on this information. If the inform
                     logger.debug(f"Could not extract answers: {e}")
             
             for result in results:
-                search_results.append(result)  # Collect for GPT-4 enhancement
+                # Store the raw result with Azure's score format for GPT enhancement
+                actual_score = result.get('@search.score', 0)
+                logger.debug(f"Raw search result: file='{result.get('file_name', 'Unknown')}', score={actual_score} (type: {type(actual_score)})")
+                
+                search_results.append({
+                    'file_name': result.get('file_name', 'Unknown'),
+                    'chunk_text': result.get('chunk_text', ''),
+                    'score': actual_score,  # Extract the actual search score
+                    '@search.score': actual_score  # Keep both formats for compatibility
+                })
                 result_count += 1
                 if result_count <= 3:  # Show first 3 results
-                    print(f"   • {result.get('file_name', 'Unknown')} (Score: {result.get('@search.score', 'N/A'):.3f})")
+                    print(f"   • {result.get('file_name', 'Unknown')} (Score: {actual_score:.3f})")
                     
                     # Check for captions in the result
                     if '@search.captions' in result:
@@ -400,7 +432,16 @@ Please provide a direct, helpful answer based on this information. If the inform
                     logger.debug(f"Could not extract answers: {e}")
             
             for result in results:
-                search_results.append(result)  # Collect for GPT-4 enhancement
+                # Store the raw result with Azure's score format for GPT enhancement
+                actual_score = result.get('@search.score', 0)
+                logger.debug(f"Raw filtered search result: file='{result.get('file_name', 'Unknown')}', score={actual_score} (type: {type(actual_score)})")
+                
+                search_results.append({
+                    'file_name': result.get('file_name', 'Unknown'),
+                    'chunk_text': result.get('chunk_text', ''),
+                    'score': actual_score,  # Extract the actual search score
+                    '@search.score': actual_score  # Keep both formats for compatibility
+                })
                 result_count += 1
                 if result_count <= 3:  # Show first 3 results
                     group_id = result.get('group_id', 'N/A')
@@ -485,6 +526,138 @@ Please provide a direct, helpful answer based on this information. If the inform
             logger.debug(traceback.format_exc())
             return False
     
+    def test_hybrid_semantic_search(self, query: str, index_type: str = "user") -> bool:
+        """Test advanced hybrid semantic search (vector + text + semantic re-ranking)."""
+        if not self.has_openai:
+            print(f"\n⏭️  Skipping hybrid semantic search: '{query}' (OpenAI not available)")
+            return False
+            
+        print(f"\n🚀 Testing hybrid semantic search (ADVANCED): '{query}' on {index_type} index")
+        print("   🔄 Combining: Vector embeddings + Text search + Semantic re-ranking")
+        
+        try:
+            # Generate embedding for vector component
+            embedding_start = datetime.now()
+            embedding = self.generate_embedding(query)
+            embedding_time = (datetime.now() - embedding_start).total_seconds() * 1000
+            
+            if not embedding:
+                print("   ❌ Failed to generate embedding for hybrid semantic search")
+                return False
+            
+            client = self.user_search_client if index_type == "user" else self.group_search_client
+            semantic_config = "nexus-user-index-semantic-configuration" if index_type == "user" else "nexus-group-index-semantic-configuration"
+            
+            # Create vector query component
+            vector_query = VectorizedQuery(
+                vector=embedding,
+                k_nearest_neighbors=5,
+                fields="embedding"
+            )
+            
+            # Execute hybrid semantic search with all three components
+            search_start = datetime.now()
+            results = client.search(
+                search_text=query,                          # Text search component
+                vector_queries=[vector_query],              # Vector search component  
+                query_type="semantic",                      # Semantic re-ranking
+                semantic_configuration_name=semantic_config,
+                query_caption="extractive",                 # Extract highlighted snippets
+                query_answer="extractive",                  # Extract direct answers
+                top=10,                                     # Get more results for better re-ranking
+                search_mode="any"                          # Allow broader text matching
+            )
+            search_time = (datetime.now() - search_start).total_seconds() * 1000
+            
+            result_count = 0
+            answers_found = []
+            search_results = []
+            
+            # Extract semantic answers first (these are the best results from re-ranking)
+            if hasattr(results, 'get_answers') and callable(results.get_answers):
+                try:
+                    semantic_answers = results.get_answers()
+                    if semantic_answers:
+                        print(f"   🎯 SEMANTIC ANSWERS (Re-ranked):")
+                        for i, answer in enumerate(semantic_answers):
+                            answer_text = answer.text if hasattr(answer, 'text') else str(answer)
+                            print(f"   {i+1}. {answer_text}")
+                            logger.info(f"Hybrid Semantic Answer {i+1}: {answer_text}")
+                            answers_found.append(answer_text)
+                except Exception as e:
+                    logger.debug(f"Could not extract semantic answers: {e}")
+            
+            # Process search results (these are re-ranked by semantic relevance)
+            print(f"   📊 HYBRID SEMANTIC RESULTS (Re-ranked by Semantic AI):")
+            reranked_results = []
+            for result in results:
+                result_count += 1
+                score = result.get('@search.score', 0)
+                reranker_score = result.get('@search.reranker_score', 'N/A')
+                file_name = result.get('file_name', 'Unknown')
+                
+                # Store result for GPT enhancement
+                search_results.append({
+                    'file_name': file_name,
+                    'chunk_text': result.get('chunk_text', ''),
+                    'score': score,
+                    'reranker_score': reranker_score
+                })
+                
+                # Track reranker impact
+                if reranker_score != 'N/A':
+                    reranked_results.append((file_name, score, reranker_score))
+                
+                if result_count <= 5:  # Show top 5 results
+                    if reranker_score != 'N/A':
+                        # Show dramatic re-ranking impact
+                        rerank_change = "🚀 BOOSTED" if reranker_score > score else "📉 reduced"
+                        print(f"   {result_count}. {file_name}")
+                        print(f"      Original Score: {score:.3f} → Reranker Score: {reranker_score:.3f} ({rerank_change})")
+                    else:
+                        print(f"   {result_count}. {file_name} (Score: {score:.3f})")
+                    
+                    # Show caption if available (semantic highlighting)
+                    captions = result.get('@search.captions')
+                    if captions:
+                        for caption in captions[:1]:  # Show first caption
+                            caption_text = caption.text if hasattr(caption, 'text') else str(caption)
+                            print(f"      💡 Semantic Highlight: {caption_text[:150]}...")
+            
+            # Show re-ranking impact summary
+            if reranked_results:
+                print(f"   🎯 RE-RANKING IMPACT:")
+                for i, (fname, orig, rerank) in enumerate(reranked_results[:3], 1):
+                    impact = ((rerank - orig) / orig * 100) if orig > 0 else 0
+                    direction = "↗️ improved" if impact > 0 else "↘️ reduced"
+                    print(f"      {i}. {fname}: {impact:+.1f}% {direction}")
+            
+            # Generate enhanced answer using GPT with all the re-ranked results
+            if self.has_openai and search_results:
+                enhanced_answer = self.generate_enhanced_answer(query, search_results, answers_found)
+                if enhanced_answer:
+                    print(f"\n   🤖 GPT-Enhanced Answer:")
+                    print(f"   {enhanced_answer}")
+                
+                # Update search summary
+                self._update_search_summary(query, search_results, answers_found, enhanced_answer or "", index_type)
+            
+            print(f"   ✅ Hybrid semantic search completed - {result_count} results")
+            print(f"   ⚡ Performance: Embedding {embedding_time:.0f}ms, Search {search_time:.0f}ms")
+            print(f"   🎯 Semantic answers: {len(answers_found)}, Enhanced: {'Yes' if self.has_openai else 'No'}")
+            
+            return True
+            
+        except HttpResponseError as e:
+            log_http_error_details(e, "hybrid semantic", query)
+            print(f"   ❌ Hybrid semantic search failed: {e}")
+            return False
+        except Exception as e:
+            print(f"   ❌ Hybrid semantic search failed: {e}")
+            logger.error(f"Hybrid semantic search error: {e}")
+            logger.debug(traceback.format_exc())
+            return False
+    
     def run_all_tests(self, query: str = "artificial intelligence") -> Dict[str, bool]:
         """Run all search tests."""
         print("=" * 60)
@@ -512,6 +685,10 @@ Please provide a direct, helpful answer based on this information. If the inform
         if self.has_openai:
             results['hybrid_basic_user'] = self.test_hybrid_search_basic(query, "user")
             results['hybrid_basic_group'] = self.test_hybrid_search_basic(query, "group")
+            
+            # Test advanced hybrid semantic search (the ultimate search method)
+            results['hybrid_semantic_user'] = self.test_hybrid_semantic_search(query, "user")
+            results['hybrid_semantic_group'] = self.test_hybrid_semantic_search(query, "group")
         
         # Summary
         print("\n" + "=" * 60)
@@ -524,8 +701,12 @@ Please provide a direct, helpful answer based on this information. If the inform
         
         # Enhanced Diagnosis with HTTP Analysis
         print(f"\n🎯 DIAGNOSIS:")
-        if results.get('hybrid_basic_user') or results.get('hybrid_basic_group'):
-            print("✅ Basic hybrid search works!")
+        if results.get('hybrid_semantic_user') or results.get('hybrid_semantic_group'):
+            print("🚀 Advanced hybrid semantic search works! (Vector + Text + Semantic Re-ranking)")
+            print("💡 This is the most sophisticated search method available")
+        elif results.get('hybrid_basic_user') or results.get('hybrid_basic_group'):
+            print("✅ Basic hybrid search works! (Vector + Text)")
+            print("💡 Consider enabling semantic configuration for advanced re-ranking")
         elif results.get('semantic_filtered_group'):
             print("✅ Semantic search with proper field selection works!")
             print("💡 Your log shows semantic search succeeds with specific filters and field selection")
@@ -534,7 +715,7 @@ Please provide a direct, helpful answer based on this information. If the inform
         elif results['basic_user'] or results['basic_group']:
             print("✅ Basic text search works")
             if not self.has_openai:
-                print("ℹ️  Add OpenAI credentials to test hybrid search")
+                print("ℹ️  Add OpenAI credentials to test hybrid and hybrid semantic search")
         else:
             print("❌ All searches failed - check configuration")
         

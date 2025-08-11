@@ -79,6 +79,7 @@ docker run --rm \
 - **Basic text search** across user and group indexes
 - **Semantic search** with AI reranking and answer extraction
 - **Hybrid search** combining vector embeddings with keyword search
+- **🚀 Advanced hybrid semantic search** (Vector + Text + Semantic Re-ranking)
 - **Filtered semantic search** with field selection and GroupID filtering
 - **GPT-enhanced answers** using configurable completion models
 
@@ -420,6 +421,7 @@ The secure multi-stage build ensures it's safe for enterprise environments while
 
 ## 📈 Key Benefits
 
+✅ **Advanced Search Methods** - Including hybrid semantic (Vector + Text + Re-ranking)  
 ✅ **Comprehensive Testing** - Tests all search methods (basic, semantic, hybrid)  
 ✅ **GPT Integration** - Enhanced answers using configurable GPT models  
 ✅ **Performance Insights** - Detailed timing and optimization recommendations  
