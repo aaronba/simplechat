@@ -172,7 +172,7 @@ The secure multi-stage build ensures it's safe for enterprise environments while
 
 ### This is the run command
 ```
-docker run --rm \
+docker run --rm `
   -v "${PWD}/certs:/app/certs" `
   -e AZURE_AI_SEARCH_ENDPOINT="$env:AZURE_AI_SEARCH_ENDPOINT" `
   -e AZURE_AI_SEARCH_KEY="$env:AZURE_AI_SEARCH_KEY" `
