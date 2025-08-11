@@ -1,5 +1,22 @@
 # Azure AI Search Debug Tool - Changelog
 
+## [2.1.1] - 2025-08-11
+
+### 🐛 Critical Bug Fix
+
+#### Score Summary Display Issue
+- **Fixed score summary preservation** - Search results summary now correctly displays the highest scores from semantic search (e.g., 1.429) instead of being overwritten by lower hybrid search scores (e.g., 0.033)
+- **Enhanced `_update_search_summary()` logic** - Only updates highest scoring result when a better score is found
+- **Score comparison accuracy** - Regex-based score extraction from existing summary to prevent overwriting superior results
+- **Debug logging improvements** - Added score tracking logs to help diagnose future scoring issues
+- **Multi-search method consistency** - Results summary now preserves the best results across all 9 search methods
+
+#### Technical Details
+- **Root cause**: `_update_search_summary()` was being called multiple times, with hybrid search results overwriting higher semantic search scores
+- **Solution**: Implemented score comparison logic to only update when new scores are genuinely higher
+- **Impact**: Users now see accurate "🏆 Highest Scoring Result" and "📊 Top Results Found" sections in final summary
+- **Validation**: All search methods continue to work while preserving the highest relevance scores for display
+
 ## [2.1.0] - 2025-08-11
 
 ### 🚀 NEW: Advanced Hybrid Semantic Search

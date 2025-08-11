@@ -103,7 +103,82 @@ docker run --rm \
 - **Search result summarization** with question tracking
 - **Configuration validation** for all Azure services
 
-## 🛡️ Security Features
+## � Understanding Azure AI Search Types
+
+This diagnostic tool tests multiple Azure AI Search methodologies, each optimized for different use cases and offering varying levels of sophistication and accuracy.
+
+### 🔤 **Basic Text Search**
+- **Methodology**: Keyword-based matching using BM25 algorithm
+- **Use Case**: Precise term matching and traditional full-text search
+- **Performance**: ⚡ Fastest (50-150ms typical response time)
+- **Best For**: Known terminology, exact phrase matching, technical documentation searches
+- **Example**: Query "Azure subscription" returns documents containing those exact terms
+
+### 🧠 **Semantic Search** 
+- **Methodology**: AI-powered semantic understanding with query rewriting and ranking
+- **Use Case**: Intent-based search that understands meaning beyond exact keywords
+- **Performance**: 🚀 Fast (100-300ms with AI reranking)
+- **Best For**: Natural language queries, conceptual searches, exploratory research
+- **Features**: Semantic answer extraction, query caption highlighting
+- **Example**: Query "configure Azure subscriptions" also finds "setup," "manage," and "initialize" content
+
+### 🎯 **Hybrid Search**
+- **Methodology**: Combines keyword matching (BM25) with vector similarity search using embeddings
+- **Use Case**: Comprehensive search leveraging both exact matches and semantic similarity
+- **Performance**: 🚀 Fast (150-400ms with vector operations)  
+- **Best For**: Balanced precision and recall, complex queries requiring both exact and conceptual matches
+- **Example**: Finds exact "Azure subscription" matches AND semantically similar content about account management
+
+### 🚀 **Hybrid Semantic Search** (Recommended)
+- **Methodology**: Multi-stage approach combining:
+  1. **Vector embeddings** for semantic similarity
+  2. **Text search** for keyword precision  
+  3. **Semantic re-ranking** for optimal relevance ordering
+- **Use Case**: Maximum search quality and relevance for production applications
+- **Performance**: 🌟 Comprehensive (200-500ms for superior results)
+- **Features**: 
+  - Semantic answer extraction with confidence scoring
+  - Re-ranking impact analysis showing performance improvements
+  - Caption highlighting of most relevant content segments
+  - GPT-enhanced answer generation using all search components
+- **Best For**: Production applications requiring highest quality results
+- **Example**: Comprehensive matching with intelligent ranking - delivers most relevant results first with detailed explanations
+
+### 📊 **Performance Comparison**
+
+| Search Method | Latency | Accuracy | Complexity | Best Use Case |
+|---------------|---------|----------|------------|---------------|
+| **Basic Text** | ⚡⚡⚡ 50-150ms | Good | Low | Exact term matching |
+| **Semantic** | ⚡⚡ 100-300ms | Better | Medium | Natural language queries |
+| **Hybrid** | ⚡⚡ 150-400ms | Great | High | Comprehensive search |
+| **Hybrid Semantic** | ⚡ 200-500ms | **Excellent** | **Highest** | **Production applications** |
+
+### 🏆 **Test Results Interpretation**
+
+The diagnostic tool validates all search types with a comprehensive test suite:
+
+```
+============================================================
+TEST SUMMARY  
+============================================================
+basic_user                ✓ PASS
+basic_group               ✓ PASS  
+semantic_user             ✓ PASS
+semantic_group            ✓ PASS
+semantic_filtered_group   ✓ PASS
+hybrid_basic_user         ✓ PASS
+hybrid_basic_group        ✓ PASS
+hybrid_semantic_user      ✓ PASS
+hybrid_semantic_group     ✓ PASS
+```
+
+**Diagnostic Priorities:**
+1. **Hybrid Semantic** = Production-ready, highest quality results
+2. **Hybrid Basic** = Good balance of speed and accuracy  
+3. **Semantic** = Natural language understanding
+4. **Basic** = Fast, precise keyword matching
+
+## �🛡️ Security Features
 
 ### Multi-Stage Build
 ```dockerfile
