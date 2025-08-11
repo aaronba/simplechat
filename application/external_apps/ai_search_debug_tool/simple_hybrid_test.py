@@ -3,6 +3,16 @@
 Simple Azure AI Search Test
 Tests Azure AI Search with optional OpenAI for full hybrid search.
 Includes comprehensive 206 Partial Content error analysis and verbose logging.
+
+Environment Variables:
+- AZURE_AI_SEARCH_ENDPOINT: Your Azure AI Search service endpoint
+- AZURE_AI_SEARCH_KEY: Your Azure AI Search admin key
+- AZURE_OPENAI_ENDPOINT: Your Azure OpenAI service endpoint (optional)
+- AZURE_OPENAI_KEY: Your Azure OpenAI service key (optional)
+- AZURE_OPENAI_COMPLETION_DEPLOYMENT: GPT completion model deployment name (default: gpt-4.1)
+- AZURE_OPENAI_EMBEDDING_DEPLOYMENT: Embedding model deployment name (default: text-embedding-ada-002)
+- TEST_QUERY: Custom test query (default: "what did Ahmed have for lunch")
+
 Set environment variables or edit the script directly.
 """
 
@@ -26,13 +36,36 @@ except ImportError as e:
     sys.exit(1)
 
 # Set up logging for verbose error analysis
+# Control log level via LOG_LEVEL environment variable (DEBUG, INFO, WARNING, ERROR)
+log_level = os.getenv('LOG_LEVEL', 'INFO').upper()
+log_level_mapping = {
+    'DEBUG': logging.DEBUG,
+    'INFO': logging.INFO,
+    'WARNING': logging.WARNING,
+    'ERROR': logging.ERROR
+}
+
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=log_level_mapping.get(log_level, logging.INFO),
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
         logging.StreamHandler(sys.stdout)
     ]
 )
+
+# Control Azure SDK HTTP logging separately
+azure_log_level = logging.WARNING if log_level != 'DEBUG' else logging.DEBUG
+azure_loggers = [
+    'azure.core.pipeline.policies.http_logging_policy',
+    'azure.search.documents._search_client',
+    'azure.core.pipeline.policies',
+    'azure',
+    'urllib3.connectionpool'
+]
+
+for logger_name in azure_loggers:
+    azure_logger = logging.getLogger(logger_name)
+    azure_logger.setLevel(azure_log_level)
 
 logger = logging.getLogger(__name__)
 
@@ -188,6 +221,95 @@ class SimpleSearchTest:
         else:
             self.openai_client = None
             print("ℹ️  No OpenAI - text search only")
+        
+        # Track search results for summary
+        self.search_summary = {
+            'query': '',
+            'best_results': [],
+            'semantic_answers': [],
+            'enhanced_answer': '',
+            'highest_scoring_source': ''
+        }
+    
+    def generate_enhanced_answer(self, query: str, search_results: List[Dict], semantic_answers: List[str]) -> Optional[str]:
+        """Generate an enhanced answer using GPT-4 based on search results and semantic answers."""
+        if not self.has_openai:
+            return None
+            
+        try:
+            # Prepare context from search results
+            context_chunks = []
+            for i, result in enumerate(search_results[:3]):  # Use top 3 results
+                chunk_text = result.get('chunk_text', '')
+                file_name = result.get('file_name', 'Unknown')
+                if chunk_text:
+                    context_chunks.append(f"Document {i+1} ({file_name}):\n{chunk_text[:500]}...")
+            
+            # Combine semantic answers
+            semantic_context = "\n".join([f"Semantic Answer {i+1}: {answer}" for i, answer in enumerate(semantic_answers)])
+            
+            # Create the prompt
+            context_text = "\n\n".join(context_chunks)
+            prompt = f"""Based on the following search results and semantic answers, provide a clear, concise answer to the user's question.
+
+User Question: {query}
+
+Semantic Answers from Azure AI Search:
+{semantic_context}
+
+Additional Context from Documents:
+{context_text}
+
+Please provide a direct, helpful answer based on this information. If the information is insufficient, say so."""
+
+            # Use GPT-4.1 for completion (check for custom deployment name)
+            completion_model = os.getenv("AZURE_OPENAI_COMPLETION_DEPLOYMENT", "gpt-4.1")
+            response = self.openai_client.chat.completions.create(
+                model=completion_model,
+                messages=[
+                    {"role": "system", "content": "You are a helpful assistant that answers questions based on provided context."},
+                    {"role": "user", "content": prompt}
+                ],
+                max_tokens=300,
+                temperature=0.3
+            )
+            
+            return response.choices[0].message.content
+            
+        except Exception as e:
+            logger.error(f"GPT-4 completion failed: {e}")
+            return None
+    
+    def _update_search_summary(self, query: str, search_results: List[Dict], semantic_answers: List[str], enhanced_answer: str, index_type: str):
+        """Update the search summary with the best results and answers."""
+        if not search_results:
+            return
+            
+        # Update the query
+        self.search_summary['query'] = query
+        
+        # Get the highest-scoring result
+        best_result = search_results[0] if search_results else None
+        if best_result:
+            file_name = best_result.get('file_name', 'Unknown')
+            score = best_result.get('@search.score', 'N/A')
+            self.search_summary['highest_scoring_source'] = f"{file_name} (Score: {score:.3f}, {index_type} index)"
+            
+            # Store best results info (top 3)
+            self.search_summary['best_results'] = []
+            for i, result in enumerate(search_results[:3]):
+                result_info = {
+                    'file_name': result.get('file_name', 'Unknown'),
+                    'score': result.get('@search.score', 'N/A'),
+                    'index': index_type
+                }
+                self.search_summary['best_results'].append(result_info)
+        
+        # Update semantic answers and enhanced answer
+        if semantic_answers:
+            self.search_summary['semantic_answers'] = semantic_answers
+        if enhanced_answer:
+            self.search_summary['enhanced_answer'] = enhanced_answer
     
     def generate_embedding(self, text: str) -> Optional[List[float]]:
         """Generate embedding for the given text (if OpenAI is available)."""
@@ -195,9 +317,10 @@ class SimpleSearchTest:
             return None
             
         try:
+            embedding_model = os.getenv("AZURE_OPENAI_EMBEDDING_DEPLOYMENT", "text-embedding-ada-002")
             response = self.openai_client.embeddings.create(
                 input=text,
-                model="text-embedding-ada-002"  # Adjust if your deployment name is different
+                model=embedding_model
             )
             return response.data[0].embedding
         except Exception as e:
@@ -258,12 +381,51 @@ class SimpleSearchTest:
             )
             
             result_count = 0
+            answers_found = []
+            search_results = []
+            
+            # Extract semantic answers if available
+            if hasattr(results, 'get_answers') and callable(results.get_answers):
+                try:
+                    semantic_answers = results.get_answers()
+                    if semantic_answers:
+                        print(f"   📝 SEMANTIC ANSWERS FOUND:")
+                        for i, answer in enumerate(semantic_answers):
+                            answer_text = answer.text if hasattr(answer, 'text') else str(answer)
+                            print(f"   {i+1}. {answer_text}")
+                            logger.info(f"Semantic Answer {i+1}: {answer_text}")
+                            answers_found.append(answer_text)
+                except Exception as e:
+                    logger.debug(f"Could not extract answers: {e}")
+            
             for result in results:
+                search_results.append(result)  # Collect for GPT-4 enhancement
                 result_count += 1
                 if result_count <= 3:  # Show first 3 results
                     print(f"   • {result.get('file_name', 'Unknown')} (Score: {result.get('@search.score', 'N/A'):.3f})")
+                    
+                    # Check for captions in the result
+                    if '@search.captions' in result:
+                        captions = result['@search.captions']
+                        if captions:
+                            caption_text = captions[0].text if hasattr(captions[0], 'text') else str(captions[0])
+                            print(f"     Caption: {caption_text}")
+                            logger.info(f"Caption for {result.get('file_name', 'Unknown')}: {caption_text}")
             
-            print(f"   ✓ Semantic search works - {result_count} total results")
+            # Generate enhanced answer using GPT-4
+            if answers_found or search_results:
+                enhanced_answer = self.generate_enhanced_answer(query, search_results, answers_found)
+                if enhanced_answer:
+                    print(f"   🤖 GPT-4 ENHANCED ANSWER:")
+                    print(f"   {enhanced_answer}")
+                    logger.info(f"GPT-4 Enhanced Answer: {enhanced_answer}")
+                    
+                    # Update search summary for later display
+                    self._update_search_summary(query, search_results, answers_found, enhanced_answer, index_type)
+            
+            print(f"   ✓ Semantic search works - {result_count} total results, {len(answers_found)} answers")
+            if answers_found:
+                logger.info(f"Total semantic answers extracted: {len(answers_found)}")
             return True
             
         except Exception as e:
@@ -311,15 +473,54 @@ class SimpleSearchTest:
             )
             
             result_count = 0
+            answers_found = []
+            search_results = []
+            
+            # Extract semantic answers if available
+            if hasattr(results, 'get_answers') and callable(results.get_answers):
+                try:
+                    semantic_answers = results.get_answers()
+                    if semantic_answers:
+                        print(f"   📝 SEMANTIC ANSWERS FOUND:")
+                        for i, answer in enumerate(semantic_answers):
+                            answer_text = answer.text if hasattr(answer, 'text') else str(answer)
+                            print(f"   {i+1}. {answer_text}")
+                            logger.info(f"Semantic Answer {i+1}: {answer_text}")
+                            answers_found.append(answer_text)
+                except Exception as e:
+                    logger.debug(f"Could not extract answers: {e}")
+            
             for result in results:
+                search_results.append(result)  # Collect for GPT-4 enhancement
                 result_count += 1
                 if result_count <= 3:  # Show first 3 results
                     group_id = result.get('group_id', 'N/A')
                     document_id = result.get('id', 'N/A')
                     print(f"   • {result.get('file_name', 'Unknown')} (GroupID: {group_id})")
                     print(f"     DocID: {document_id}")
+                    
+                    # Check for captions in the result
+                    if '@search.captions' in result:
+                        captions = result['@search.captions']
+                        if captions:
+                            caption_text = captions[0].text if hasattr(captions[0], 'text') else str(captions[0])
+                            print(f"     Caption: {caption_text}")
+                            logger.info(f"Caption for {result.get('file_name', 'Unknown')}: {caption_text}")
             
-            print(f"   ✓ Semantic search with proper fields works - {result_count} total results")
+            # Generate enhanced answer using GPT-4
+            if answers_found or search_results:
+                enhanced_answer = self.generate_enhanced_answer(query, search_results, answers_found)
+                if enhanced_answer:
+                    print(f"   🤖 GPT-4 ENHANCED ANSWER:")
+                    print(f"   {enhanced_answer}")
+                    logger.info(f"GPT-4 Enhanced Answer: {enhanced_answer}")
+                    
+                    # Update search summary for later display
+                    self._update_search_summary(query, search_results, answers_found, enhanced_answer, index_type)
+            
+            print(f"   ✓ Semantic search with proper fields works - {result_count} total results, {len(answers_found)} answers")
+            if answers_found:
+                logger.info(f"Total semantic answers extracted: {len(answers_found)}")
             return True
             
         except Exception as e:
@@ -436,41 +637,31 @@ class SimpleSearchTest:
         else:
             print("❌ All searches failed - check configuration")
         
-        # HTTP Response Analysis Summary
-        print(f"\n📊 HTTP RESPONSE ANALYSIS:")
-        print("=" * 40)
-        print("✅ All HTTP requests returned status 200 (Success)")
-        print("✅ No HTTP 206 (Partial Content) errors detected")
-        print("✅ Proper chunked transfer encoding used")
-        print("✅ No problematic Range headers detected")
-        print("✅ API version 2024-07-01 working correctly")
-        
-        # Request Size Analysis
-        print(f"\n📏 REQUEST SIZE ANALYSIS:")
-        print("=" * 40)
-        print("• Basic text search: ~53 bytes (minimal)")
-        print("• Semantic search: ~197-387 bytes (moderate)")
-        print("• Hybrid search: ~34KB (large vector embeddings)")
-        print("✅ All request sizes handled successfully")
-        
-        # Performance Summary
-        print(f"\n⚡ PERFORMANCE SUMMARY:")
-        print("=" * 40)
-        print("• Search latency: ~100-300ms per request")
-        print("• Vector embedding: ~47-155ms per request") 
-        print("• No timeout or connection issues")
-        print("✅ All requests completed within normal timeframes")
-        
-        # 206 Error Detection Results
-        print(f"\n🔍 206 ERROR DETECTION RESULTS:")
-        print("=" * 40)
-        print("❌ No HTTP 206 (Partial Content) errors found")
-        print("✅ Enhanced logging captured all request/response details")
-        print("✅ Error detection mechanism is active and working")
-        print("💡 If 206 errors occur in production, this script will capture:")
-        print("   - Exact HTTP status codes and error messages")
-        print("   - Full request/response headers")
-        print("   - Detailed error analysis and suggested solutions")
+        # Search Results Summary
+        if self.search_summary['query']:
+            print(f"\n🎯 SEARCH RESULTS SUMMARY:")
+            print("=" * 40)
+            print(f"📋 Question Asked: '{self.search_summary['query']}'")
+            
+            if self.search_summary['highest_scoring_source']:
+                print(f"🏆 Highest Scoring Result: {self.search_summary['highest_scoring_source']}")
+            
+            if self.search_summary['best_results']:
+                print(f"📊 Top Results Found:")
+                for i, result in enumerate(self.search_summary['best_results'], 1):
+                    score_str = f"{result['score']:.3f}" if isinstance(result['score'], (int, float)) else str(result['score'])
+                    print(f"   {i}. {result['file_name']} (Score: {score_str}, {result['index']} index)")
+            
+            if self.search_summary['semantic_answers']:
+                print(f"🔍 Semantic Answers Found ({len(self.search_summary['semantic_answers'])}):")
+                for i, answer in enumerate(self.search_summary['semantic_answers'], 1):
+                    # Truncate long answers for summary
+                    display_answer = answer[:100] + "..." if len(answer) > 100 else answer
+                    print(f"   {i}. {display_answer}")
+            
+            if self.search_summary['enhanced_answer']:
+                print(f"🤖 Final Enhanced Answer:")
+                print(f"   {self.search_summary['enhanced_answer']}")
         
         return results
 
@@ -535,18 +726,29 @@ def main():
         print("   export AZURE_OPENAI_ENDPOINT='https://your-openai.openai.azure.com'")
         print("   export AZURE_OPENAI_KEY='your-openai-key'")
         print("   (or use AZURE_OPENAI_EMBEDDING_ENDPOINT and AZURE_OPENAI_EMBEDDING_KEY)")
+        print("   Optional: AZURE_OPENAI_COMPLETION_DEPLOYMENT='gpt-4o'")
+        print("   Optional: AZURE_OPENAI_EMBEDDING_DEPLOYMENT='text-embedding-ada-002'")
         print("")
     
     print(f"🔧 Configuration:")
     print(f"   Search Endpoint: {search_endpoint}")
     print(f"   OpenAI Endpoint: {openai_endpoint or 'Not set (text search only)'}")
+    if openai_endpoint and openai_key:
+        completion_deployment = os.getenv("AZURE_OPENAI_COMPLETION_DEPLOYMENT", "gpt-4o")
+        embedding_deployment = os.getenv("AZURE_OPENAI_EMBEDDING_DEPLOYMENT", "text-embedding-ada-002")
+        print(f"   GPT Completion Model: {completion_deployment}")
+        print(f"   Embedding Model: {embedding_deployment}")
+    print(f"   Log Level: {log_level}")
     print()
     
     # Run the tests
     tester = SimpleSearchTest(search_endpoint, search_key, openai_endpoint, openai_key)
     
-    # Use a query similar to your successful log example
-    test_query = "what did Ahmed have for lunch"
+    # Get test query from environment variable or use default
+    test_query = os.getenv("TEST_QUERY", "what did Ahmed have for lunch")
+    print(f"   Test Query: '{test_query}'")
+    print()
+    
     results = tester.run_all_tests(test_query)
 
 
