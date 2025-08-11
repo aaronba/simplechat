@@ -2,7 +2,7 @@
 """
 Simple Azure AI Search Test
 Tests Azure AI Search with optional OpenAI for full hybrid search.
-Includes comprehensive 206 Partial Content error analysis and verbose logging.
+Includes comprehensive diagnostic capabilities and verbose logging.
 
 Environment Variables:
 - AZURE_AI_SEARCH_ENDPOINT: Your Azure AI Search service endpoint
@@ -69,47 +69,8 @@ for logger_name in azure_loggers:
 
 logger = logging.getLogger(__name__)
 
-def analyze_partial_content_error():
-    """Analyze the most common causes of HTTP 206 Partial Content in Azure AI Search."""
-    
-    print("=" * 60)
-    print("AZURE AI SEARCH - PARTIAL CONTENT ERROR ANALYSIS")
-    print("=" * 60)
-    print(f"Analysis Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print()
-    
-    print("🔍 HTTP 206 Partial Content Error Analysis")
-    print("=" * 50)
-    
-    print("\n📋 COMMON CAUSES OF HTTP 206 IN AZURE AI SEARCH:")
-    print("1. Range Header Issues:")
-    print("   - Client sending Range headers in requests")
-    print("   - Server interpreting request as partial content request")
-    print("   - This can happen with certain HTTP libraries or configurations")
-    
-    print("\n2. API Version Compatibility:")
-    print("   - Using older API versions (pre-2020-06-30)")
-    print("   - Semantic search features requiring newer API versions")
-    print("   - Version mismatch between client library and service")
-    
-    print("\n3. Search Request Size/Complexity:")
-    print("   - Large vector queries triggering partial responses")
-    print("   - Complex semantic queries with extractive features")
-    print("   - Multiple vector queries in a single request")
-    
-    print("\n4. Client Library Version Issues:")
-    print("   - azure-search-documents library version conflicts")
-    print("   - HTTP adapter configuration issues")
-    print("   - Request/response handling problems")
-    
-    print("\n5. Network/Proxy Issues:")
-    print("   - Intermediate proxies modifying headers")
-    print("   - Load balancers with range request handling")
-    print("   - CDN or caching layer interference")
-
-
 def log_http_error_details(error: Exception, search_type: str, query: str):
-    """Log detailed information about HTTP errors, especially 206 responses."""
+    """Log detailed information about HTTP errors."""
     
     logger.error(f"🚨 HTTP Error in {search_type} search:")
     logger.error(f"   Query: '{query}'")
@@ -118,15 +79,6 @@ def log_http_error_details(error: Exception, search_type: str, query: str):
     
     if hasattr(error, 'status_code'):
         logger.error(f"   HTTP Status Code: {error.status_code}")
-        
-        if error.status_code == 206:
-            logger.error("   🔍 PARTIAL CONTENT (206) ERROR DETECTED!")
-            logger.error("   This indicates the server returned partial results.")
-            logger.error("   Common causes:")
-            logger.error("   - Range header issues")
-            logger.error("   - API version compatibility problems")
-            logger.error("   - Large/complex query triggering partial response")
-            logger.error("   - Network/proxy interference")
     
     if hasattr(error, 'error'):
         logger.error(f"   Azure Error Details: {error.error}")
@@ -137,37 +89,6 @@ def log_http_error_details(error: Exception, search_type: str, query: str):
     # Log full traceback for debugging
     logger.debug("   Full Traceback:")
     logger.debug(traceback.format_exc())
-
-
-def suggest_206_solutions():
-    """Print specific solutions for 206 Partial Content errors."""
-    
-    print("\n" + "=" * 60)
-    print("206 PARTIAL CONTENT - SUGGESTED SOLUTIONS")
-    print("=" * 60)
-    
-    print("\n💡 IMMEDIATE FIXES TO TRY:")
-    print("=" * 40)
-    
-    print("\n1. API Version Fix:")
-    print("   Try different API versions:")
-    print("   - 2023-07-01-Preview")
-    print("   - 2021-04-30-Preview")
-    print("   - 2020-06-30")
-    
-    print("\n2. Simplify Search Query:")
-    print("   - Remove semantic search features temporarily")
-    print("   - Reduce k_nearest_neighbors count")
-    print("   - Test basic text search first")
-    
-    print("\n3. Check Network Configuration:")
-    print("   - Verify no proxy interference")
-    print("   - Check for Range header injection")
-    print("   - Test from different network location")
-    
-    print("\n4. Update Client Library:")
-    print("   - Ensure latest azure-search-documents version")
-    print("   - Check for HTTP adapter conflicts")
 
 
 # Try to import OpenAI for hybrid search
@@ -354,8 +275,6 @@ Please provide a direct, helpful answer based on this information. If the inform
         except HttpResponseError as e:
             log_http_error_details(e, "basic text", query)
             print(f"   ❌ Basic text search failed: {e}")
-            if hasattr(e, 'status_code') and e.status_code == 206:
-                suggest_206_solutions()
             return False
         except Exception as e:
             logger.error(f"Unexpected error in basic search: {e}")
@@ -364,7 +283,7 @@ Please provide a direct, helpful answer based on this information. If the inform
             return False
     
     def test_semantic_search(self, query: str, index_type: str = "user") -> bool:
-        """Test semantic search (this might cause 206 error)."""
+        """Test semantic search."""
         print(f"\n🔍 Testing semantic search: '{query}' on {index_type} index")
         
         try:
@@ -430,19 +349,9 @@ Please provide a direct, helpful answer based on this information. If the inform
             
         except Exception as e:
             print(f"   ❌ Semantic search failed: {e}")
-            # Enhanced 206 error detection and logging
-            if hasattr(e, 'status_code') and e.status_code == 206:
-                log_http_error_details(e, "semantic", query)
-                print("   🚨 CONFIRMED: This is the 206 Partial Content error!")
-                print("   💡 The issue is with semantic search features")
-                suggest_206_solutions()
-            elif '206' in str(e) or 'partial content' in str(e).lower():
-                print("   🚨 This appears to be the 206 Partial Content error!")
-                print("   💡 The issue is with semantic features")
-                logger.error(f"Potential 206 error detected: {e}")
-            else:
-                logger.error(f"Other semantic search error: {e}")
-                logger.debug(traceback.format_exc())
+            log_http_error_details(e, "semantic", query)
+            logger.error(f"Semantic search error: {e}")
+            logger.debug(traceback.format_exc())
             return False
     
     def test_semantic_search_with_filters(self, query: str, index_type: str = "group") -> bool:
@@ -525,9 +434,8 @@ Please provide a direct, helpful answer based on this information. If the inform
             
         except Exception as e:
             print(f"   ❌ Semantic search with filters failed: {e}")
-            if '206' in str(e) or 'partial content' in str(e).lower():
-                print("   🚨 This is the 206 Partial Content error!")
-                print("   💡 Even with proper field selection, semantic search fails")
+            logger.error(f"Semantic search with filters error: {e}")
+            logger.debug(traceback.format_exc())
             return False
     
     def test_hybrid_search_basic(self, query: str, index_type: str = "user") -> bool:
@@ -570,18 +478,11 @@ Please provide a direct, helpful answer based on this information. If the inform
         except HttpResponseError as e:
             log_http_error_details(e, "hybrid", query)
             print(f"   ❌ Basic hybrid search failed: {e}")
-            if hasattr(e, 'status_code') and e.status_code == 206:
-                print("   🚨 CONFIRMED: 206 Partial Content in hybrid search!")
-                suggest_206_solutions()
             return False
         except Exception as e:
             print(f"   ❌ Basic hybrid search failed: {e}")
-            if '206' in str(e) or 'partial content' in str(e).lower():
-                print("   🚨 This appears to be the 206 Partial Content error!")
-                logger.error(f"Potential 206 error in hybrid search: {e}")
-            else:
-                logger.error(f"Other hybrid search error: {e}")
-                logger.debug(traceback.format_exc())
+            logger.error(f"Hybrid search error: {e}")
+            logger.debug(traceback.format_exc())
             return False
     
     def run_all_tests(self, query: str = "artificial intelligence") -> Dict[str, bool]:
@@ -600,7 +501,7 @@ Please provide a direct, helpful answer based on this information. If the inform
         results['basic_user'] = self.test_basic_search(query, "user")
         results['basic_group'] = self.test_basic_search(query, "group")
         
-        # Test semantic searches (might fail with 206)
+        # Test semantic searches
         results['semantic_user'] = self.test_semantic_search(query, "user")
         results['semantic_group'] = self.test_semantic_search(query, "group")
         
@@ -669,16 +570,9 @@ Please provide a direct, helpful answer based on this information. If the inform
 def main():
     """Main function - reads from environment variables or script settings."""
     
-    # First, run the 206 error analysis
-    print("🔬 Starting Azure AI Search with Enhanced 206 Error Analysis...")
+    # Starting diagnostic tool
+    print("🔬 Starting Azure AI Search Diagnostic Tool...")
     print()
-    
-    # Check if user wants detailed 206 analysis
-    if len(sys.argv) > 1 and sys.argv[1] == "--analyze-206":
-        analyze_partial_content_error()
-        print("\n" + "="*60)
-        print("Continuing with actual search tests...")
-        print("="*60)
     
     # Try to get from environment variables first
     search_endpoint = os.getenv("AZURE_AI_SEARCH_ENDPOINT")

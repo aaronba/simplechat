@@ -1,12 +1,12 @@
 # Azure AI Search Debug Container
 
-This Docker container provides enterprise-grade Azure AI Search debugging capabilities with comprehensive 206 error detection, built on security-hardened Chainguard images.
+This Docker container provides enterprise-grade Azure AI Search debugging capabilities built on security-hardened Chainguard images.
 
 ## 🏆 Success Metrics
 
 ✅ **Multi-stage secure build** - Production + Dev separation  
 ✅ **Chainguard distroless runtime** - Minimal attack surface  
-✅ **206 error detection** - Comprehensive HTTP response analysis  
+✅ **HTTP error detection** - Comprehensive response analysis  
 ✅ **Performance monitoring** - Request timing and size analysis  
 ✅ **Non-root execution** - Security best practices  
 ✅ **Virtual environment isolation** - Clean dependency management  
@@ -82,11 +82,10 @@ docker run --rm \
 - **Filtered semantic search** with field selection and GroupID filtering
 - **GPT-enhanced answers** using configurable completion models
 
-### HTTP 206 Error Analysis
-- **Partial Content responses** from Azure AI Search
-- **Range header issues** in large result sets
-- **Content-Length mismatches** in chunked responses
-- **Request size thresholds** that trigger 206 responses
+### HTTP Error Analysis
+- **Response validation** from Azure AI Search
+- **Request/response logging** for debugging
+- **Connection issues** and timeout handling
 - **Enhanced error logging** with full request/response capture
 
 ### Performance Monitoring
@@ -125,7 +124,7 @@ FROM cgr.dev/chainguard/python:latest
 ## 📊 Sample Output
 
 ```
-🔬 Starting Azure AI Search with Enhanced 206 Error Analysis...
+🔬 Starting Azure AI Search Diagnostic Tool...
 
 🔧 Configuration:
    Search Endpoint: https://your-search.search.windows.net
@@ -195,9 +194,7 @@ hybrid_basic_group        ✓ PASS
 📊 HTTP RESPONSE ANALYSIS:
 ========================================
 ✅ All HTTP requests returned status 200 (Success)
-✅ No HTTP 206 (Partial Content) errors detected
-✅ Proper chunked transfer encoding used
-✅ No problematic Range headers detected
+✅ Proper transfer encoding used
 ✅ API version 2024-07-01 working correctly
 
 ⚡ PERFORMANCE SUMMARY:
@@ -221,17 +218,17 @@ hybrid_basic_group        ✓ PASS
 🤖 Final Enhanced Answer:
    [Complete step-by-step CloudShell login instructions based on search context]
 ```
-✅ No HTTP 206 (Partial Content) errors detected
-✅ Proper chunked transfer encoding used
+✅ All HTTP requests successful
+✅ Proper transfer encoding used
 
-🔍 206 ERROR DETECTION RESULTS:
+🔍 HTTP RESPONSE ANALYSIS:
 ========================================
-❌ No HTTP 206 (Partial Content) errors found
+✅ All requests completed successfully
 ✅ Enhanced logging captured all request/response details
-💡 If 206 errors occur in production, this script will capture:
+💡 Error logging includes:
    - Exact HTTP status codes and error messages
    - Full request/response headers
-   - Detailed error analysis and suggested solutions
+   - Detailed error analysis for troubleshooting
 ```
 
 ## 🚀 Azure Container Registry Deployment
@@ -284,7 +281,7 @@ docker run --rm \
 # Test with GPT-4.1 and different embedding model
 export AZURE_OPENAI_COMPLETION_DEPLOYMENT="gpt-4.1"
 export AZURE_OPENAI_EMBEDDING_DEPLOYMENT="text-embedding-3-large"
-export TEST_QUERY="How do I troubleshoot Azure AI Search 206 errors?"
+export TEST_QUERY="How do I troubleshoot Azure AI Search configuration issues?"
 ```
 
 **Complex Query Testing:**
@@ -361,8 +358,8 @@ docker run --rm \
 - ✅ Review query complexity and result set sizes
 - ✅ Consider timeout adjustments for large document sets
 
-### 206 Errors Not Detected
-- ✅ The container shows 206 errors only when they actually occur
+### HTTP Errors Not Detected
+- ✅ The container reports errors only when they actually occur
 - ✅ Try larger, more complex queries to trigger edge cases
 - ✅ Test with different search types (basic, semantic, hybrid)
 - ✅ Check Azure AI Search service logs for additional context
@@ -409,7 +406,7 @@ This container is designed for:
 
 ### Production Monitoring
 - **Health checks** - Regular validation of search service availability
-- **Error detection** - Identify 206 errors and other HTTP issues early
+- **Error detection** - Identify HTTP issues and connection problems early
 - **Performance monitoring** - Track search latency and optimization opportunities
 - **Capacity planning** - Analyze request sizes and response times
 
@@ -426,7 +423,7 @@ The secure multi-stage build ensures it's safe for enterprise environments while
 ✅ **Comprehensive Testing** - Tests all search methods (basic, semantic, hybrid)  
 ✅ **GPT Integration** - Enhanced answers using configurable GPT models  
 ✅ **Performance Insights** - Detailed timing and optimization recommendations  
-✅ **Error Detection** - Advanced 206 error analysis and HTTP debugging  
+✅ **Error Detection** - Advanced HTTP error analysis and debugging  
 ✅ **Security First** - Distroless runtime with non-root execution  
 ✅ **Enterprise Ready** - Certificate support and comprehensive logging  
 ✅ **Easy Configuration** - Environment variable-driven setup  
