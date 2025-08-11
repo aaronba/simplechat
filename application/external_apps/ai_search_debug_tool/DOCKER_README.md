@@ -170,7 +170,7 @@ This container is designed for:
 
 The secure multi-stage build ensures it's safe for enterprise environments while providing comprehensive diagnostic capabilities.
 
-### This is the run command
+### This is the run command (Windows /  PowerShell)
 ```
 docker run --rm `
   -v "${PWD}/certs:/app/certs" `
@@ -180,3 +180,12 @@ docker run --rm `
   -e AZURE_OPENAI_KEY="$env:AZURE_OPENAI_KEY" `
   debug-ai-search-secure
 ```
+
+### This is the run command (Linux / Bash)
+docker run --rm \
+  -v "$PWD/certs:/app/certs" \
+  -e AZURE_AI_SEARCH_ENDPOINT="$AZURE_AI_SEARCH_ENDPOINT" \
+  -e AZURE_AI_SEARCH_KEY="$AZURE_AI_SEARCH_KEY" \
+  -e AZURE_OPENAI_ENDPOINT="$AZURE_OPENAI_ENDPOINT" \
+  -e AZURE_OPENAI_KEY="$AZURE_OPENAI_KEY" \
+  debug-ai-search-secure
