@@ -169,3 +169,14 @@ This container is designed for:
 - **Performance analysis** - Measuring search latency and optimization
 
 The secure multi-stage build ensures it's safe for enterprise environments while providing comprehensive diagnostic capabilities.
+
+### This is the run command
+```
+docker run --rm \
+  -v "${PWD}/certs:/app/certs" `
+  -e AZURE_AI_SEARCH_ENDPOINT="$env:AZURE_AI_SEARCH_ENDPOINT" `
+  -e AZURE_AI_SEARCH_KEY="$env:AZURE_AI_SEARCH_KEY" `
+  -e AZURE_OPENAI_ENDPOINT="$env:AZURE_OPENAI_ENDPOINT" `
+  -e AZURE_OPENAI_KEY="$env:AZURE_OPENAI_KEY" `
+  debug-ai-search-secure
+```
