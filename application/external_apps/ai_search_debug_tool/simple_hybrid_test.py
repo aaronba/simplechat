@@ -114,9 +114,11 @@ class SimpleSearchTest:
             openai_endpoint: Azure OpenAI endpoint (optional)
             openai_key: Azure OpenAI key (optional)
         """
-        self.search_endpoint = search_endpoint.rstrip('/')
-        self.search_key = search_key
-        self.has_openai = HAS_OPENAI and openai_endpoint and openai_key and "your-openai" not in str(openai_endpoint)
+        # Safe endpoint handling - ensure we have strings before operations
+        self.search_endpoint = (search_endpoint or "").rstrip('/')
+        self.search_key = search_key or ""
+        self.has_openai = (HAS_OPENAI and openai_endpoint and openai_key and 
+                          "your-openai" not in str(openai_endpoint or ""))
         
         # Initialize search clients
         self.user_search_client = SearchClient(
@@ -289,7 +291,13 @@ Please provide a direct, helpful answer based on this information. If the inform
             for result in results:
                 result_count += 1
                 if result_count <= 3:  # Show first 3 results
-                    print(f"   • {result.get('file_name', 'Unknown')} (Score: {result.get('@search.score', 'N/A'):.3f})")
+                    # Safe formatting for score - handle potential 'N/A' or None values
+                    score = result.get('@search.score', 'N/A')
+                    if isinstance(score, (int, float)):
+                        score_str = f"{score:.3f}"
+                    else:
+                        score_str = str(score)
+                    print(f"   • {result.get('file_name', 'Unknown')} (Score: {score_str})")
             
             print(f"   ✓ Basic text search works - {result_count} total results")
             logger.debug(f"Basic search completed successfully: {result_count} results")
@@ -511,7 +519,13 @@ Please provide a direct, helpful answer based on this information. If the inform
             for result in results:
                 result_count += 1
                 if result_count <= 3:  # Show first 3 results
-                    print(f"   • {result.get('file_name', 'Unknown')} (Score: {result.get('@search.score', 'N/A'):.3f})")
+                    # Safe formatting for score - handle potential 'N/A' or None values
+                    score = result.get('@search.score', 'N/A')
+                    if isinstance(score, (int, float)):
+                        score_str = f"{score:.3f}"
+                    else:
+                        score_str = str(score)
+                    print(f"   • {result.get('file_name', 'Unknown')} (Score: {score_str})")
             
             print(f"   ✓ Basic hybrid search works - {result_count} total results")
             return True
@@ -604,18 +618,25 @@ Please provide a direct, helpful answer based on this information. If the inform
                     'reranker_score': reranker_score
                 })
                 
-                # Track reranker impact
-                if reranker_score != 'N/A':
+                # Track reranker impact - ensure we have valid numeric values
+                if (reranker_score != 'N/A' and reranker_score is not None and 
+                    isinstance(reranker_score, (int, float)) and isinstance(score, (int, float))):
                     reranked_results.append((file_name, score, reranker_score))
                 
                 if result_count <= 5:  # Show top 5 results
-                    if reranker_score != 'N/A':
+                    if (reranker_score != 'N/A' and reranker_score is not None and 
+                        isinstance(reranker_score, (int, float)) and isinstance(score, (int, float))):
                         # Show dramatic re-ranking impact
                         rerank_change = "🚀 BOOSTED" if reranker_score > score else "📉 reduced"
                         print(f"   {result_count}. {file_name}")
                         print(f"      Original Score: {score:.3f} → Reranker Score: {reranker_score:.3f} ({rerank_change})")
                     else:
-                        print(f"   {result_count}. {file_name} (Score: {score:.3f})")
+                        # Safe formatting for score - handle potential non-numeric values
+                        if isinstance(score, (int, float)):
+                            score_str = f"{score:.3f}"
+                        else:
+                            score_str = str(score)
+                        print(f"   {result_count}. {file_name} (Score: {score_str})")
                     
                     # Show caption if available (semantic highlighting)
                     captions = result.get('@search.captions')
@@ -628,9 +649,13 @@ Please provide a direct, helpful answer based on this information. If the inform
             if reranked_results:
                 print(f"   🎯 RE-RANKING IMPACT:")
                 for i, (fname, orig, rerank) in enumerate(reranked_results[:3], 1):
-                    impact = ((rerank - orig) / orig * 100) if orig > 0 else 0
-                    direction = "↗️ improved" if impact > 0 else "↘️ reduced"
-                    print(f"      {i}. {fname}: {impact:+.1f}% {direction}")
+                    # Ensure we have valid numeric values for calculation
+                    if isinstance(orig, (int, float)) and isinstance(rerank, (int, float)) and orig > 0:
+                        impact = ((rerank - orig) / orig * 100)
+                        direction = "↗️ improved" if impact > 0 else "↘️ reduced"
+                        print(f"      {i}. {fname}: {impact:+.1f}% {direction}")
+                    else:
+                        print(f"      {i}. {fname}: Unable to calculate impact (invalid scores)")
             
             # Generate enhanced answer using GPT with all the re-ranked results
             if self.has_openai and search_results:
