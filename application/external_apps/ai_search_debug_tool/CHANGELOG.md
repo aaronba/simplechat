@@ -1,5 +1,41 @@
 # Azure AI Search Debug Tool - Changelog
 
+## [2.1.3] - 2025-08-13
+
+### 🎯 Critical Fix: Multi-Index Search Answer Accuracy
+
+#### Enhanced Answer Priority Logic
+- **Fixed mixed-context confusion** when documents exist in both group and user indexes
+- **Implemented score-based answer prioritization** - Final enhanced answer now always comes from the highest-scoring search result
+- **Enhanced debug logging** to track which index provides the final answer
+
+#### The Problem
+When the same document existed in both user and group indexes:
+- Search summary would get updated multiple times during the test sequence
+- **Semantic answers and enhanced answers were always overwritten** by the last search method that ran
+- Final enhanced answer could contain mixed context from different indexes, leading to confused or incorrect responses
+- Users saw inconsistent answers depending on search execution order
+
+#### The Solution  
+**Smart Answer Prioritization Logic:**
+1. **Score-based updates**: Semantic answers and enhanced answers are only updated when a search yields a higher score than the current best
+2. **Fallback logic**: If no previous answers exist, accepts answers from any search (first-come, first-served)
+3. **Clear provenance tracking**: Debug logs show which index (user/group) provided the final answer
+4. **Context consistency**: Final enhanced answer is always based on the highest-relevance search results
+
+#### Technical Implementation
+- **Enhanced `_update_search_summary()` method** with score-based conditional logic
+- **Moved score comparison outside result block** for proper variable scope
+- **Added comprehensive debug logging** for answer source tracking
+- **Improved final summary display** to clarify answer provenance
+
+#### Impact
+- ✅ **Eliminates answer confusion** when documents exist in multiple indexes
+- ✅ **Ensures highest-quality responses** by prioritizing best search results  
+- ✅ **Maintains answer consistency** regardless of search execution order
+- ✅ **Provides clear answer provenance** in debug logs and final summary
+- ✅ **Zero breaking changes** - all existing functionality preserved
+
 ## [2.1.2] - 2025-08-12
 
 ### 🛡️ Critical Type Safety Fixes

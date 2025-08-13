@@ -211,6 +211,15 @@ Please provide a direct, helpful answer based on this information. If the inform
         # Update the query
         self.search_summary['query'] = query
         
+        # Get current best score for comparison
+        current_best_score = 0
+        if self.search_summary.get('highest_scoring_source'):
+            # Extract current best score from the existing string
+            import re
+            match = re.search(r'Score: ([\d.]+)', self.search_summary['highest_scoring_source'])
+            if match:
+                current_best_score = float(match.group(1))
+        
         # Get the highest-scoring result from this search
         best_result = search_results[0] if search_results else None
         if best_result:
@@ -223,15 +232,6 @@ Please provide a direct, helpful answer based on this information. If the inform
                 score_str = f"{score:.3f}"
             else:
                 score_str = str(score)
-            
-            # Only update the highest scoring source if this score is better
-            current_best_score = 0
-            if self.search_summary.get('highest_scoring_source'):
-                # Extract current best score from the existing string
-                import re
-                match = re.search(r'Score: ([\d.]+)', self.search_summary['highest_scoring_source'])
-                if match:
-                    current_best_score = float(match.group(1))
             
             # Update if this is the new highest score
             if isinstance(score, (int, float)) and score > current_best_score:
@@ -250,12 +250,22 @@ Please provide a direct, helpful answer based on this information. If the inform
                     }
                     self.search_summary['best_results'].append(result_info)
                     logger.debug(f"Updated best result {i+1}: {result_info['file_name']} with score {result_score}")
-        
-        # Update semantic answers and enhanced answer (always update these)
-        if semantic_answers:
-            self.search_summary['semantic_answers'] = semantic_answers
-        if enhanced_answer:
-            self.search_summary['enhanced_answer'] = enhanced_answer
+                
+                # Update semantic answers and enhanced answer - only for the highest scoring search
+                if semantic_answers:
+                    self.search_summary['semantic_answers'] = semantic_answers
+                    logger.debug(f"Updated semantic answers from {index_type} index (best score: {score:.3f})")
+                if enhanced_answer:
+                    self.search_summary['enhanced_answer'] = enhanced_answer
+                    logger.debug(f"Updated enhanced answer from {index_type} index (best score: {score:.3f})")
+            else:
+                # If this isn't the best result, only update if we don't have answers yet
+                if semantic_answers and not self.search_summary.get('semantic_answers'):
+                    self.search_summary['semantic_answers'] = semantic_answers
+                    logger.debug(f"Added initial semantic answers from {index_type} index (score: {score:.3f if isinstance(score, (int, float)) else 'N/A'})")
+                if enhanced_answer and not self.search_summary.get('enhanced_answer'):
+                    self.search_summary['enhanced_answer'] = enhanced_answer
+                    logger.debug(f"Added initial enhanced answer from {index_type} index (score: {score:.3f if isinstance(score, (int, float)) else 'N/A'})")
     
     def generate_embedding(self, text: str) -> Optional[List[float]]:
         """Generate embedding for the given text (if OpenAI is available)."""
@@ -767,8 +777,10 @@ Please provide a direct, helpful answer based on this information. If the inform
                     print(f"   {i}. {display_answer}")
             
             if self.search_summary['enhanced_answer']:
-                print(f"🤖 Final Enhanced Answer:")
+                print(f"🤖 Final Enhanced Answer (from highest-scoring search):")
                 print(f"   {self.search_summary['enhanced_answer']}")
+            else:
+                print(f"🤖 Final Enhanced Answer: None (GPT-4 enhancement not available or failed)")
         
         return results
 
