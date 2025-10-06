@@ -201,7 +201,7 @@ def get_settings():
         'conversation_history_limit': 10,
         'default_system_prompt': '',
         'enable_file_processing_logs': True,
-        'enable_external_healthcheck': False,
+        'enable_health_check': True,
 
         # Video file settings with Azure Video Indexer Settings
         'video_indexer_endpoint': video_indexer_endpoint,

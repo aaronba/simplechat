@@ -7,7 +7,7 @@ from functions_prompts import *
 
 def register_route_external_health(app):
     @app.route('/external/healthcheck', methods=['GET'])
-    @enabled_required("enable_external_healthcheck")
+    @enabled_required("enable_health_check")
     def health_check():
         now = datetime.now()
         time_string = now.strftime("%Y-%m-%d %H:%M:%S")
