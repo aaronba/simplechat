@@ -65,7 +65,7 @@
 
 .PARAMETER McpServerUrl
     Full URL to the MCP server /mcp endpoint (running in the Commercial tenant).
-    Example: https://alb-simplechat-mcp.mangomeadow-2fcac1b3.eastus2.azurecontainerapps.io/mcp
+    Example: https://your-mcp-server.azurecontainerapps.io/mcp
 
 .PARAMETER AzureBotName
     Name for the Azure Bot resource in the Commercial tenant.
@@ -73,7 +73,7 @@
 
 .PARAMETER ResourceGroupName
     Azure resource group for the Bot (Commercial tenant).
-    Default: "aaronba-simplechat-rg"
+    Default: "your-resource-group"
 
 .PARAMETER ContainerAppName
     Name for the new Container App for the GCC bot .NET code.
@@ -85,7 +85,7 @@
 
 .PARAMETER AcrName
     Azure Container Registry name (Commercial tenant).
-    Default: "aaronbasimplechatacr"
+    Default: "youracrname"
 
 .PARAMETER SecretExpirationDays
     Days until the generated client secret expires. Default: 180
@@ -98,26 +98,26 @@
 
 .EXAMPLE
     .\Setup-CrossTenantAgent.ps1 `
-        -GccTenantId "a67f3540-f5cf-4575-9754-9d21a392eb98" `
-        -CommercialTenantId "7d887458-fb0d-40bf-adb3-084d875f65db"
+        -GccTenantId "00000000-0000-0000-0000-000000000001" `
+        -CommercialTenantId "00000000-0000-0000-0000-000000000002"
 
     Interactive setup with prompts at each step.
 
 .EXAMPLE
     .\Setup-CrossTenantAgent.ps1 `
-        -GccTenantId "a67f3540-f5cf-4575-9754-9d21a392eb98" `
-        -CommercialTenantId "7d887458-fb0d-40bf-adb3-084d875f65db" `
+        -GccTenantId "00000000-0000-0000-0000-000000000001" `
+        -CommercialTenantId "00000000-0000-0000-0000-000000000002" `
         -WhatIf
 
     Dry run — shows what would happen without making any changes.
 
 .EXAMPLE
     .\Setup-CrossTenantAgent.ps1 `
-        -GccTenantId "a67f3540-f5cf-4575-9754-9d21a392eb98" `
-        -CommercialTenantId "7d887458-fb0d-40bf-adb3-084d875f65db" `
-        -BotAppId "04213000-438f-40e8-8c05-0c211f07565e" `
-        -ResourceAppId "0b8c00b9-4dcd-4959-83be-7a0521ce54ce" `
-        -McpServerUrl "https://alb-simplechat-mcp.mangomeadow-2fcac1b3.eastus2.azurecontainerapps.io/mcp" `
+        -GccTenantId "00000000-0000-0000-0000-000000000001" `
+        -CommercialTenantId "00000000-0000-0000-0000-000000000002" `
+        -BotAppId "00000000-0000-0000-0000-000000000003" `
+        -ResourceAppId "00000000-0000-0000-0000-000000000004" `
+        -McpServerUrl "https://your-mcp-server.azurecontainerapps.io/mcp" `
         -SkipPhase @(1)
 
     Skip Phase 1 (GCC app reg already set up), provide known IDs.
@@ -154,13 +154,13 @@ param(
 
     [string]$AzureBotName = "simplechat-agent-gcc-bot",
 
-    [string]$ResourceGroupName = "aaronba-simplechat-rg",
+    [string]$ResourceGroupName = "your-resource-group",
 
     [string]$ContainerAppName = "simplechat-agent-gcc",
 
     [string]$ContainerAppEnvName = "",
 
-    [string]$AcrName = "aaronbasimplechatacr",
+    [string]$AcrName = "youracrname",
 
     [int]$SecretExpirationDays = 180,
 
@@ -1504,7 +1504,7 @@ if (4 -notin $SkipPhase) {
 
     $containerAppDomain = $script:State.ContainerAppFqdn
     if (-not $containerAppDomain) {
-        $containerAppDomain = "$ContainerAppName.mangomeadow-2fcac1b3.eastus2.azurecontainerapps.io"
+        $containerAppDomain = "$ContainerAppName.<your-environment>.<region>.azurecontainerapps.io"
     }
 
     $validDomains = @($containerAppDomain)
